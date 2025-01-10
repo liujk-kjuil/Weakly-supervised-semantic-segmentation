@@ -4,5 +4,8 @@ tool/__pycache__/
 network/__pycache__/
 network/backbone/__pycache__/
 network/sync_batchnorm/__pycache__/
-logs/
 init_weights/
+draft
+draft/
+checkpoints/
+

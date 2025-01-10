@@ -2,7 +2,7 @@ import os
 import numpy as np
 import argparse
 import importlib
-from visdom import Visdom
+from torch.utils.tensorboard import SummaryWriter
 
 import torch
 import torch.nn.functional as F
@@ -24,8 +24,8 @@ def compute_acc(pred_labels, gt_labels):
     return acc
 
 def train_phase(args):
-    # 初始化 Visdom，用于实时可视化训练过程中的指标
-    viz = Visdom(env=args.env_name)
+    # 初始化 TensorBoard，用于实时可视化训练过程中的指标
+    writer = SummaryWriter('logs')
 
     # 加载神经网络
     model = getattr(importlib.import_module(args.network), 'Net')(args.init_gama, n_class=args.n_class)
@@ -46,7 +46,7 @@ def train_phase(args):
     # 加载训练数据集，传入数据路径、变换方法和数据集名称
     train_dataset = Stage1_TrainDataset(data_path=args.trainroot, transform=transform_train, dataset=args.dataset)
 
-    # 定义数据加载器，支持多线程加载和数据打乱
+    # 定义数据加载器
     train_data_loader = DataLoader(
         train_dataset,
         batch_size=args.batch_size,
@@ -68,7 +68,7 @@ def train_phase(args):
         {'params': param_groups[3], 'lr': 20*args.lr, 'weight_decay': 0}             # 其他特征
     ], lr=args.lr, weight_decay=args.wt_dec, max_step=max_step)
 
-    # 加载预训练权重，如果未提供则随机初始化
+    # 加载预训练权重
     if args.weights[-7:] == '.params':
         # 如果是 MXNet 格式的权重，进行转换
         assert args.network == "network.resnet38_cls"
@@ -80,7 +80,6 @@ def train_phase(args):
         weights_dict = torch.load(args.weights)
         model.load_state_dict(weights_dict, strict=False)
     else:
-        # 未提供权重时随机初始化
         print('random init')
 
     # 将模型移动到 GPU
@@ -113,8 +112,9 @@ def train_phase(args):
 
             # 前向传播，获取输出和特征
             x, feature, y = model(img.cuda(), enable_PDA)
-            prob = y.cpu().data.numpy()  # 将概率转移到 CPU 并转换为 NumPy 数组
-            gt = label.cpu().data.numpy()  # 同样处理标签
+            # 将 y,label 转移到 CPU 并转换为 NumPy
+            prob = y.cpu().data.numpy()  
+            gt = label.cpu().data.numpy()
 
             # 计算精确匹配和准确率
             for num, one in enumerate(prob):
@@ -129,7 +129,7 @@ def train_phase(args):
             avg_ep_EM = round(ep_EM / ep_count, 4)  # 计算平均精确匹配率
             avg_ep_acc = round(ep_acc / ep_count, 4)  # 计算平均准确率
 
-            # 计算损失
+            # 结合 sigmoid 激活和二分类交叉熵损失,计算多标签分类任务中模型输出与目标标签之间的损失
             loss = F.multilabel_soft_margin_loss(x, label)
 
             # 记录损失和准确率
@@ -139,7 +139,7 @@ def train_phase(args):
                 'avg_ep_acc': avg_ep_acc,
             })
 
-            # 优化步骤
+            # 优化
             optimizer.zero_grad()  # 清除梯度
             loss.backward()       # 反向传播
             optimizer.step()      # 更新参数
@@ -158,10 +158,10 @@ def train_phase(args):
                       'Fin:%s' % (timer.str_est_finish()),
                       flush=True)
 
-                # 更新 Visdom 曲线
-                viz.line([avg_meter.pop('loss')], [optimizer.global_step], win='loss', update='append', opts=dict(title='loss'))
-                viz.line([avg_meter.pop('avg_ep_EM')], [optimizer.global_step], win='Acc_exact', update='append', opts=dict(title='Acc_exact'))
-                viz.line([avg_meter.pop('avg_ep_acc')], [optimizer.global_step], win='Acc', update='append', opts=dict(title='Acc'))
+                # 更新 TensorBoard 曲线
+                writer.add_scalar('Loss/train', avg_meter.pop('loss'), optimizer.global_step)
+                writer.add_scalar('Accuracy/Exact_Match', avg_meter.pop('avg_ep_EM'), optimizer.global_step)
+                writer.add_scalar('Accuracy/Accuracy', avg_meter.pop('avg_ep_acc'), optimizer.global_step)
 
         # 在训练过程中动态调整 gama 值
         if model.gama > 0.65:
@@ -172,29 +172,24 @@ def train_phase(args):
     torch.save(model.state_dict(), os.path.join(args.save_folder, 'stage1_checkpoint_trained_on_' + args.dataset + '.pth'))
 
 def test_phase(args):
-    # 动态加载指定的网络模块，并初始化模型为 "Net_CAM" 类型，传入类别数
+    # 动态加载指定的网络模块
     model = getattr(importlib.import_module(args.network), 'Net_CAM')(n_class=args.n_class)
-
-    # 将模型移动到 GPU 上运行
     model = model.cuda()
 
-    # 构造模型权重路径，默认加载训练阶段保存的权重
+    # 加载训练阶段保存的权重
     args.weights = os.path.join(args.save_folder, 'stage1_checkpoint_trained_on_' + args.dataset + '.pth')
-
-    # 加载模型权重，允许部分参数不匹配（strict=False）以提高灵活性
     weights_dict = torch.load(args.weights)
     model.load_state_dict(weights_dict, strict=False)
 
-    # 设置模型为评估模式，禁用 dropout 和 batch normalization 的更新
+    # 设置模型为 eval 模式
+    # 禁用 dropout 和 batch normalization 的更新
     model.eval()
 
-    # 通过推理函数对测试集进行评估，并计算分数
+    # 对测试集进行评估
     score = infer(model, args.testroot, args.n_class)
-
-    # 打印评估结果分数
     print(score)
 
-    # 保存当前模型的权重到指定路径（此处权重未被修改，但保留代码以确保一致性）
+    # 保存当前模型的权重
     torch.save(model.state_dict(), os.path.join(args.save_folder, 'stage1_checkpoint_trained_on_' + args.dataset + '.pth'))
 
 
