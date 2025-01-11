@@ -12,6 +12,7 @@ from torchvision import transforms
 from tool import pyutils, torchutils
 from tool.GenDataset import Stage1_TrainDataset
 from tool.infer_fun import infer
+from tool.log import MyLogger
 cudnn.enabled = True
 
 def compute_acc(pred_labels, gt_labels):
@@ -25,7 +26,7 @@ def compute_acc(pred_labels, gt_labels):
 
 def train_phase(args):
     # 初始化 TensorBoard，用于实时可视化训练过程中的指标
-    writer = SummaryWriter('logs')
+    writer = SummaryWriter(args.log_dir)
 
     # 加载神经网络
     model = getattr(importlib.import_module(args.network), 'Net')(args.init_gama, n_class=args.n_class)
@@ -194,6 +195,7 @@ def test_phase(args):
 
 
 if __name__ == '__main__':
+    logger = MyLogger(log_root="logs/stage1")
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch_size", default=20, type=int)
     parser.add_argument("--max_epoches", default=20, type=int)
@@ -211,6 +213,7 @@ if __name__ == '__main__':
     parser.add_argument("--save_folder", default='checkpoints/',  type=str)
     parser.add_argument("--init_gama", default=1, type=float)
     parser.add_argument("--dataset", default='bcss', type=str)
+    parser.add_argument("--log_dir", default=logger.log_dir, type=str)
     args = parser.parse_args()
 
     train_phase(args)

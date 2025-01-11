@@ -1,0 +1,74 @@
+Arguments:
+  batch_size: 40
+  max_epoches: 8
+  network: network.resnet38_cls
+  lr: 0.01
+  num_workers: 10
+  wt_dec: 0.0005
+  session_name: Stage 1
+  env_name: PDA
+  model_name: PDA
+  n_class: 4
+  weights: init_weights/ilsvrc-cls_rna-a1_cls1000_ep-0001.params
+  trainroot: datasets/LUAD-HistoSeg/train/
+  testroot: dataset/LUAD-HistoSeg/test/
+  save_folder: checkpoints/
+  init_gama: 1
+  dataset: luad
+Session started:  Sat Jan 11 13:22:09 2025
+Epoch: 0 Iter:  100/ 3328 Loss:0.3895 avg_ep_EM:0.5394 avg_ep_acc:0.7278 lr: 0.0097 Fin:Sat Jan 11 13:47:26 2025
+Epoch: 0 Iter:  200/ 3328 Loss:0.3017 avg_ep_EM:0.5906 avg_ep_acc:0.7744 lr: 0.0095 Fin:Sat Jan 11 13:47:02 2025
+Epoch: 0 Iter:  300/ 3328 Loss:0.2619 avg_ep_EM:0.6173 avg_ep_acc:0.7944 lr: 0.0092 Fin:Sat Jan 11 13:46:52 2025
+Epoch: 0 Iter:  400/ 3328 Loss:0.2489 avg_ep_EM:0.6358 avg_ep_acc:0.8071 lr: 0.0089 Fin:Sat Jan 11 13:46:47 2025
+Gama of progressive dropout attention is:  0.98
+Epoch: 1 Iter:  500/ 3328 Loss:0.2256 avg_ep_EM:0.6890 avg_ep_acc:0.8434 lr: 0.0086 Fin:Sat Jan 11 13:46:55 2025
+Epoch: 1 Iter:  600/ 3328 Loss:0.1904 avg_ep_EM:0.7158 avg_ep_acc:0.8595 lr: 0.0084 Fin:Sat Jan 11 13:46:50 2025
+Epoch: 1 Iter:  700/ 3328 Loss:0.1877 avg_ep_EM:0.7284 avg_ep_acc:0.8669 lr: 0.0081 Fin:Sat Jan 11 13:46:48 2025
+Epoch: 1 Iter:  800/ 3328 Loss:0.2027 avg_ep_EM:0.7365 avg_ep_acc:0.8713 lr: 0.0078 Fin:Sat Jan 11 13:46:46 2025
+Gama of progressive dropout attention is:  0.9603999999999999
+Epoch: 2 Iter:  900/ 3328 Loss:0.1771 avg_ep_EM:0.7546 avg_ep_acc:0.8805 lr: 0.0075 Fin:Sat Jan 11 13:46:52 2025
+Epoch: 2 Iter: 1000/ 3328 Loss:0.1614 avg_ep_EM:0.7705 avg_ep_acc:0.8897 lr: 0.0073 Fin:Sat Jan 11 13:46:51 2025
+Epoch: 2 Iter: 1100/ 3328 Loss:0.1658 avg_ep_EM:0.7774 avg_ep_acc:0.8929 lr: 0.0070 Fin:Sat Jan 11 13:46:50 2025
+Epoch: 2 Iter: 1200/ 3328 Loss:0.1568 avg_ep_EM:0.7798 avg_ep_acc:0.8942 lr: 0.0067 Fin:Sat Jan 11 13:46:49 2025
+Gama of progressive dropout attention is:  0.9411919999999999
+Epoch: 3 Iter: 1300/ 3328 Loss:0.2133 avg_ep_EM:0.6929 avg_ep_acc:0.8411 lr: 0.0064 Fin:Sat Jan 11 13:46:56 2025
+Epoch: 3 Iter: 1400/ 3328 Loss:0.1572 avg_ep_EM:0.7478 avg_ep_acc:0.8749 lr: 0.0061 Fin:Sat Jan 11 13:47:00 2025
+Epoch: 3 Iter: 1500/ 3328 Loss:0.1587 avg_ep_EM:0.7757 avg_ep_acc:0.8911 lr: 0.0058 Fin:Sat Jan 11 13:47:02 2025
+Epoch: 3 Iter: 1600/ 3328 Loss:0.1586 avg_ep_EM:0.7819 avg_ep_acc:0.8942 lr: 0.0055 Fin:Sat Jan 11 13:47:05 2025
+Gama of progressive dropout attention is:  0.9223681599999999
+Epoch: 4 Iter: 1700/ 3328 Loss:0.1474 avg_ep_EM:0.7917 avg_ep_acc:0.8989 lr: 0.0053 Fin:Sat Jan 11 13:47:11 2025
+Epoch: 4 Iter: 1800/ 3328 Loss:0.1361 avg_ep_EM:0.8079 avg_ep_acc:0.9085 lr: 0.0050 Fin:Sat Jan 11 13:47:13 2025
+Epoch: 4 Iter: 1900/ 3328 Loss:0.1390 avg_ep_EM:0.8136 avg_ep_acc:0.9123 lr: 0.0047 Fin:Sat Jan 11 13:47:14 2025
+Epoch: 4 Iter: 2000/ 3328 Loss:0.1337 avg_ep_EM:0.8183 avg_ep_acc:0.9149 lr: 0.0044 Fin:Sat Jan 11 13:47:15 2025
+Gama of progressive dropout attention is:  0.9039207967999998
+Epoch: 5 Iter: 2100/ 3328 Loss:0.1307 avg_ep_EM:0.8256 avg_ep_acc:0.9175 lr: 0.0041 Fin:Sat Jan 11 13:47:19 2025
+Epoch: 5 Iter: 2200/ 3328 Loss:0.1288 avg_ep_EM:0.8380 avg_ep_acc:0.9236 lr: 0.0038 Fin:Sat Jan 11 13:47:20 2025
+Epoch: 5 Iter: 2300/ 3328 Loss:0.1294 avg_ep_EM:0.8356 avg_ep_acc:0.9228 lr: 0.0035 Fin:Sat Jan 11 13:47:21 2025
+Epoch: 5 Iter: 2400/ 3328 Loss:0.1292 avg_ep_EM:0.8332 avg_ep_acc:0.9217 lr: 0.0032 Fin:Sat Jan 11 13:47:22 2025
+Gama of progressive dropout attention is:  0.8858423808639998
+Epoch: 6 Iter: 2500/ 3328 Loss:0.1242 avg_ep_EM:0.8348 avg_ep_acc:0.9229 lr: 0.0029 Fin:Sat Jan 11 13:47:25 2025
+Epoch: 6 Iter: 2600/ 3328 Loss:0.1226 avg_ep_EM:0.8333 avg_ep_acc:0.9239 lr: 0.0025 Fin:Sat Jan 11 13:47:26 2025
+Epoch: 6 Iter: 2700/ 3328 Loss:0.1223 avg_ep_EM:0.8366 avg_ep_acc:0.9242 lr: 0.0022 Fin:Sat Jan 11 13:47:27 2025
+Epoch: 6 Iter: 2800/ 3328 Loss:0.1186 avg_ep_EM:0.8387 avg_ep_acc:0.9250 lr: 0.0019 Fin:Sat Jan 11 13:47:27 2025
+Epoch: 6 Iter: 2900/ 3328 Loss:0.1177 avg_ep_EM:0.8398 avg_ep_acc:0.9255 lr: 0.0016 Fin:Sat Jan 11 13:47:28 2025
+Gama of progressive dropout attention is:  0.8681255332467198
+Epoch: 7 Iter: 3000/ 3328 Loss:0.1160 avg_ep_EM:0.8388 avg_ep_acc:0.9239 lr: 0.0012 Fin:Sat Jan 11 13:47:30 2025
+Epoch: 7 Iter: 3100/ 3328 Loss:0.1161 avg_ep_EM:0.8429 avg_ep_acc:0.9265 lr: 0.0009 Fin:Sat Jan 11 13:47:30 2025
+Epoch: 7 Iter: 3200/ 3328 Loss:0.1132 avg_ep_EM:0.8451 avg_ep_acc:0.9276 lr: 0.0005 Fin:Sat Jan 11 13:47:31 2025
+Epoch: 7 Iter: 3300/ 3328 Loss:0.1112 avg_ep_EM:0.8481 avg_ep_acc:0.9292 lr: 0.0001 Fin:Sat Jan 11 13:47:31 2025
+Gama of progressive dropout attention is:  0.8507630225817854
+{'Pixel Accuracy': nan, 'Mean Accuracy': nan, 'Frequency Weighted IoU': 0.0, 'Mean IoU': nan, 'Class IoU': {0: nan, 1: nan, 2: nan, 3: nan}}
+
+
+/root/ljk/WSSS-Tissue/tool/iouutils.py:31: RuntimeWarning: invalid value encountered in double_scalars
+  acc = np.diag(hist).sum() / hist.sum()
+/root/ljk/WSSS-Tissue/tool/iouutils.py:32: RuntimeWarning: invalid value encountered in true_divide
+  acc_cls = np.diag(hist)[0:4] / hist.sum(axis=1)[0:4]
+/root/ljk/WSSS-Tissue/tool/iouutils.py:33: RuntimeWarning: Mean of empty slice
+  acc_cls = np.nanmean(acc_cls)
+/root/ljk/WSSS-Tissue/tool/iouutils.py:34: RuntimeWarning: invalid value encountered in true_divide
+  iu = np.diag(hist)[0:4] / ((hist.sum(axis=1) + hist.sum(axis=0) - np.diag(hist))[0:4]) #true和pred都没有，则nan；true有pred没有或者true没有pred有，则zero
+/root/ljk/WSSS-Tissue/tool/iouutils.py:35: RuntimeWarning: Mean of empty slice
+  mean_iu = np.nanmean(iu) #gt中有的其实就不会存在nan了
+/root/ljk/WSSS-Tissue/tool/iouutils.py:36: RuntimeWarning: invalid value encountered in true_divide
+  freq = hist.sum(axis=1)[0:4] / hist.sum() #groundtrue中每一个类的占比
