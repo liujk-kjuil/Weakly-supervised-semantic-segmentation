@@ -58,7 +58,7 @@ bash run_pipeline.sh
 #### 1、Train the classification model with the image-level label: 
 
 ```
-python 1_train_stage1.py --dataset luad --trainroot datasets/LUAD-HistoSeg/train/ --testroot dataset/LUAD-HistoSeg/test/ --max_epoches 20 --batch_size 20
+python 1_train_stage1.py --dataset luad --trainroot datasets/LUAD-HistoSeg/train/ --testroot datasets/LUAD-HistoSeg/test/ --max_epoches 20 --batch_size 20
 ```
 #### 2、Generate multi-layers pesudo mask by classification model: 
 
