@@ -540,7 +540,7 @@ def merge_200_cam_dict(cam_dict_200, gt_label, th, k):
 
 def cam_npy_to_label_map(cam_npy):
     seg_map = cam_npy.transpose(1,2,0)
-    seg_map = np.asarray(np.argmax(seg_map, axis=2), dtype=np.int)
+    seg_map = np.asarray(np.argmax(seg_map, axis=2), dtype=int)
     return seg_map
 
 

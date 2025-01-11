@@ -15,11 +15,14 @@ class Stage1_InferDataset(Dataset):
         self.object = self.path_label()
 
     def __getitem__(self, index):
-        fn = self.object[index]
-        img = Image.open(fn).convert('RGB')
+        fn = self.object[index]  # 获取文件路径
+        img = Image.open(fn).convert('RGB')  # 打开图像并转换为 RGB 格式
         if self.transform is not None:
-            img = self.transform(img)
-        return fn.split('/')[-1][:-4], img
+            img = self.transform(img)  # 应用数据增强或预处理
+        # 使用 os.path 处理路径分隔符
+        filename = os.path.basename(fn)  # 获取文件名（包括扩展名）
+        filename_without_ext = os.path.splitext(filename)[0]  # 去掉扩展名
+        return filename_without_ext, img
         
     def __len__(self):
         return len(self.object)

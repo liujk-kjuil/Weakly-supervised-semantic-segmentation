@@ -171,6 +171,7 @@ def train_phase(args):
 
     # 保存训练后的模型
     torch.save(model.state_dict(), os.path.join(args.save_folder, 'stage1_checkpoint_trained_on_' + args.dataset + '.pth'))
+    writer.close()
 
 def test_phase(args):
     # 动态加载指定的网络模块
@@ -188,10 +189,18 @@ def test_phase(args):
 
     # 对测试集进行评估
     score = infer(model, args.testroot, args.n_class)
-    print(score)
+    # print(score)
+    # 打印整体分数
+    print("===== Evaluation Scores =====")
+    print("Pixel Accuracy: {:.4f}".format(score['Pixel Accuracy']))
+    print("Mean Accuracy: {:.4f}".format(score['Mean Accuracy']))
+    print("Frequency Weighted IoU: {:.4f}".format(score['Frequency Weighted IoU']))
+    print("Mean IoU: {:.4f}".format(score['Mean IoU']))
 
-    # 保存当前模型的权重
-    torch.save(model.state_dict(), os.path.join(args.save_folder, 'stage1_checkpoint_trained_on_' + args.dataset + '.pth'))
+    # 打印每个类别的 IoU
+    print("\n===== Class IoU =====")
+    for class_id, iou in score['Class IoU'].items():
+        print("Class {}: {:.4f}".format(class_id, iou))
 
 
 if __name__ == '__main__':
@@ -216,5 +225,5 @@ if __name__ == '__main__':
     parser.add_argument("--log_dir", default=logger.log_dir, type=str)
     args = parser.parse_args()
 
-    train_phase(args)
+    # train_phase(args)
     test_phase(args)

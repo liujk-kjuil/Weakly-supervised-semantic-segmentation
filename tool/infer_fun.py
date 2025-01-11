@@ -43,7 +43,9 @@ def infer(model, dataroot, n_class):
                                 num_workers=8,
                                 pin_memory=False)
     for iter, (img_name, img_list) in enumerate(infer_data_loader):
-        img_name = img_name[0]; 
+        img_name = img_name[0]
+        if iter%100==0:
+            print(iter)
 
         img_path = os.path.join(os.path.join(dataroot,'img'),img_name+'.png')
         orig_img = np.asarray(Image.open(img_path))
@@ -55,7 +57,7 @@ def infer(model, dataroot, n_class):
                     cam, y = model_replicas[i%n_gpus].forward_cam(img.cuda())
                     y = y.cpu().detach().numpy().tolist()[0]
                     label = torch.tensor([1.0 if j >thr else 0.0 for j in y])
-                    cam = F.upsample(cam, orig_img_size, mode='bilinear', align_corners=False)[0]
+                    cam = F.interpolate(cam, size=orig_img_size, mode='bilinear', align_corners=False)[0]
                     cam = cam.cpu().numpy() * label.clone().view(4, 1, 1).numpy()
                     return cam, label
 
@@ -71,8 +73,6 @@ def infer(model, dataroot, n_class):
         cam_dict = infer_utils.cam_npy_to_cam_dict(norm_cam, label)
         cam_score, bg_score = infer_utils.dict2npy(cam_dict, label, orig_img, None)
         seg_map = infer_utils.cam_npy_to_label_map(cam_score)
-        if iter%100==0:
-            print(iter)
         cam_list.append(seg_map)
         gt_map_path = os.path.join(os.path.join(dataroot,'mask'), img_name + '.png')
         gt_map = np.array(Image.open(gt_map_path))

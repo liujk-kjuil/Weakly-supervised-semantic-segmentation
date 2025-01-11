@@ -1,0 +1,12 @@
+2025-01-11 22:42:53,430 - /root/ljk/WSSS-Tissue/tool/iouutils.py:31: RuntimeWarning: invalid value encountered in double_scalars
+  acc = np.diag(hist).sum() / hist.sum()
+2025-01-11 22:42:53,431 - /root/ljk/WSSS-Tissue/tool/iouutils.py:32: RuntimeWarning: invalid value encountered in true_divide
+  acc_cls = np.diag(hist)[0:4] / hist.sum(axis=1)[0:4]
+2025-01-11 22:42:53,432 - /root/ljk/WSSS-Tissue/tool/iouutils.py:33: RuntimeWarning: Mean of empty slice
+  acc_cls = np.nanmean(acc_cls)
+2025-01-11 22:42:53,432 - /root/ljk/WSSS-Tissue/tool/iouutils.py:34: RuntimeWarning: invalid value encountered in true_divide
+  iu = np.diag(hist)[0:4] / ((hist.sum(axis=1) + hist.sum(axis=0) - np.diag(hist))[0:4]) #true和pred都没有，则nan；true有pred没有或者true没有pred有，则zero
+2025-01-11 22:42:53,432 - /root/ljk/WSSS-Tissue/tool/iouutils.py:35: RuntimeWarning: Mean of empty slice
+  mean_iu = np.nanmean(iu) #gt中有的其实就不会存在nan了
+2025-01-11 22:42:53,433 - /root/ljk/WSSS-Tissue/tool/iouutils.py:36: RuntimeWarning: invalid value encountered in true_divide
+  freq = hist.sum(axis=1)[0:4] / hist.sum() #groundtrue中每一个类的占比
