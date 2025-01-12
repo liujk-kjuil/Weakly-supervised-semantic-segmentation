@@ -1,0 +1,27 @@
+2025-01-12 15:28:07,165 - Process Process-60:
+2025-01-12 15:28:07,165 - Process Process-59:
+2025-01-12 15:28:07,166 - Exception ignored in:
+2025-01-12 15:28:07,166 - <function _MultiProcessingDataLoaderIter.__del__ at 0x7f3ea7d77c10>
+2025-01-12 15:28:07,167 - Traceback (most recent call last):
+2025-01-12 15:28:07,167 - File "/root/miniconda3/lib/python3.8/site-packages/torch/utils/data/dataloader.py", line 1358, in __del__
+2025-01-12 15:28:07,168 - self._shutdown_workers()
+2025-01-12 15:28:07,168 - File "/root/miniconda3/lib/python3.8/site-packages/torch/utils/data/dataloader.py", line 1322, in _shutdown_workers
+2025-01-12 15:28:07,169 - w.join(timeout=_utils.MP_STATUS_CHECK_INTERVAL)
+2025-01-12 15:28:07,169 - File "/root/miniconda3/lib/python3.8/multiprocessing/process.py", line 149, in join
+2025-01-12 15:28:07,170 - res = self._popen.wait(timeout)
+2025-01-12 15:28:07,170 - File "/root/miniconda3/lib/python3.8/multiprocessing/popen_fork.py", line 44, in wait
+2025-01-12 15:28:07,170 - if not wait([self.sentinel], timeout):
+2025-01-12 15:28:07,170 - File "/root/miniconda3/lib/python3.8/multiprocessing/connection.py", line 931, in wait
+2025-01-12 15:28:07,171 - ready = selector.select(timeout)
+2025-01-12 15:28:07,171 - File "/root/miniconda3/lib/python3.8/selectors.py", line 415, in select
+2025-01-12 15:28:07,172 - fd_event_list = self._selector.poll(timeout)
+2025-01-12 15:28:07,172 - KeyboardInterrupt
+2025-01-12 15:28:07,172 - :
+2025-01-12 15:28:07,176 - Traceback (most recent call last):
+2025-01-12 15:28:07,176 - File "1_train_stage1.py", line 228, in <module>
+2025-01-12 15:28:07,177 - train_phase(args)
+2025-01-12 15:28:07,177 - File "1_train_stage1.py", line 147, in train_phase
+2025-01-12 15:28:07,177 - torch.cuda.empty_cache()  # 清理显存
+2025-01-12 15:28:07,177 - File "/root/miniconda3/lib/python3.8/site-packages/torch/cuda/memory.py", line 114, in empty_cache
+2025-01-12 15:28:07,178 - torch._C._cuda_emptyCache()
+2025-01-12 15:28:07,178 - KeyboardInterrupt

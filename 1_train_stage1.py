@@ -36,6 +36,7 @@ def train_phase(args):
     print("Arguments:")
     for key, value in vars(args).items():
         print(f"  {key}: {value}")
+    print('----------')
 
     # 定义数据增强和预处理操作
     transform_train = transforms.Compose([
@@ -155,9 +156,10 @@ def train_phase(args):
                       'Loss:%.4f' % (avg_meter.get('loss')),
                       'avg_ep_EM:%.4f' % (avg_meter.get('avg_ep_EM')),
                       'avg_ep_acc:%.4f' % (avg_meter.get('avg_ep_acc')),
-                      'lr: %.4f' % (optimizer.param_groups[0]['lr']), 
+                      'lr: %.6f' % (optimizer.param_groups[0]['lr']), 
                       'Fin:%s' % (timer.str_est_finish()),
                       flush=True)
+                print('----------')
 
                 # 更新 TensorBoard 曲线
                 writer.add_scalar('Loss/train', avg_meter.pop('loss'), optimizer.global_step)
@@ -167,7 +169,7 @@ def train_phase(args):
         # 在训练过程中动态调整 gama 值
         if model.gama > 0.65:
             model.gama = model.gama * 0.98
-        print('Gama of progressive dropout attention is: ', model.gama)
+        print('Gama of progressive dropout attention is: %.8f' % (model.gama))
 
     # 保存训练后的模型
     torch.save(model.state_dict(), os.path.join(args.save_folder, 'stage1_checkpoint_trained_on_' + args.dataset + '.pth'))
@@ -225,5 +227,5 @@ if __name__ == '__main__':
     parser.add_argument("--log_dir", default=logger.log_dir, type=str)
     args = parser.parse_args()
 
-    # train_phase(args)
+    train_phase(args)
     test_phase(args)
