@@ -206,7 +206,7 @@ def test_phase(args):
 
 
 if __name__ == '__main__':
-    logger = MyLogger(log_root="logs/stage1")
+    logger = MyLogger(log_root="logs/stage1/bcss")
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch_size", default=20, type=int)
     parser.add_argument("--max_epoches", default=20, type=int)
