@@ -1,0 +1,43 @@
+2025-01-12 21:34:24,324 - Traceback (most recent call last):
+2025-01-12 21:34:24,324 - File "1_train_stage1.py", line 230, in <module>
+2025-01-12 21:34:24,324 - train_phase(args)
+2025-01-12 21:34:24,324 - File "1_train_stage1.py", line 105, in train_phase
+2025-01-12 21:34:24,324 - for iter, (filename, data, label) in enumerate(train_data_loader):
+2025-01-12 21:34:24,325 - File "/root/miniconda3/lib/python3.8/site-packages/torch/utils/data/dataloader.py", line 530, in __next__
+2025-01-12 21:34:24,325 - data = self._next_data()
+2025-01-12 21:34:24,325 - File "/root/miniconda3/lib/python3.8/site-packages/torch/utils/data/dataloader.py", line 1224, in _next_data
+2025-01-12 21:34:24,325 - return self._process_data(data)
+2025-01-12 21:34:24,325 - File "/root/miniconda3/lib/python3.8/site-packages/torch/utils/data/dataloader.py", line 1250, in _process_data
+2025-01-12 21:34:24,325 - data.reraise()
+2025-01-12 21:34:24,325 - File "/root/miniconda3/lib/python3.8/site-packages/torch/_utils.py", line 457, in reraise
+2025-01-12 21:34:24,325 - raise exception
+2025-01-12 21:34:24,325 - OSError
+2025-01-12 21:34:24,325 - :
+2025-01-12 21:34:24,325 - Caught OSError in DataLoader worker process 4.
+Original Traceback (most recent call last):
+  File "/root/miniconda3/lib/python3.8/site-packages/PIL/ImageFile.py", line 239, in load
+    s = read(self.decodermaxblock)
+  File "/root/miniconda3/lib/python3.8/site-packages/PIL/PngImagePlugin.py", line 923, in load_read
+    cid, pos, length = self.png.read()
+  File "/root/miniconda3/lib/python3.8/site-packages/PIL/PngImagePlugin.py", line 189, in read
+    length = i32(s)
+  File "/root/miniconda3/lib/python3.8/site-packages/PIL/_binary.py", line 85, in i32be
+    return unpack_from(">I", c, o)[0]
+struct.error: unpack_from requires a buffer of at least 4 bytes for unpacking 4 bytes at offset 0 (actual buffer size is 0)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/root/miniconda3/lib/python3.8/site-packages/torch/utils/data/_utils/worker.py", line 287, in _worker_loop
+    data = fetcher.fetch(index)
+  File "/root/miniconda3/lib/python3.8/site-packages/torch/utils/data/_utils/fetch.py", line 49, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/root/miniconda3/lib/python3.8/site-packages/torch/utils/data/_utils/fetch.py", line 49, in <listcomp>
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/root/ljk/WSSS-Tissue/tool/GenDataset.py", line 49, in __getitem__
+    img = Image.open(fn).convert('RGB')
+  File "/root/miniconda3/lib/python3.8/site-packages/PIL/Image.py", line 934, in convert
+    self.load()
+  File "/root/miniconda3/lib/python3.8/site-packages/PIL/ImageFile.py", line 245, in load
+    raise OSError("image file is truncated") from e
+OSError: image file is truncated

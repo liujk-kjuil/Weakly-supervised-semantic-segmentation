@@ -208,7 +208,7 @@ def test_phase(args):
 if __name__ == '__main__':
     logger = MyLogger(log_root="logs/stage1/bcss")
     parser = argparse.ArgumentParser()
-    parser.add_argument("--batch_size", default=20, type=int)
+    parser.add_argument("--batch_size", default=64, type=int)
     parser.add_argument("--max_epoches", default=20, type=int)
     parser.add_argument("--network", default="network.resnet38_cls", type=str)
     parser.add_argument("--lr", default=0.01, type=float)

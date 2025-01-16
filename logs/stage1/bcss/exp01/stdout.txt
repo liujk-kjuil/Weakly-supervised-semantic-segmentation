@@ -1,0 +1,21 @@
+2025-01-12 21:33:21,126 - Arguments:
+2025-01-12 21:33:21,126 - batch_size: 64
+2025-01-12 21:33:21,126 - max_epoches: 20
+2025-01-12 21:33:21,126 - network: network.resnet38_cls
+2025-01-12 21:33:21,126 - lr: 0.005
+2025-01-12 21:33:21,126 - num_workers: 10
+2025-01-12 21:33:21,126 - wt_dec: 0.0005
+2025-01-12 21:33:21,127 - session_name: Stage 1
+2025-01-12 21:33:21,127 - env_name: PDA
+2025-01-12 21:33:21,127 - model_name: PDA
+2025-01-12 21:33:21,127 - n_class: 4
+2025-01-12 21:33:21,127 - weights: init_weights/ilsvrc-cls_rna-a1_cls1000_ep-0001.params
+2025-01-12 21:33:21,127 - trainroot: datasets/BCSS-WSSS/train/
+2025-01-12 21:33:21,127 - testroot: datasets/BCSS-WSSS/test/
+2025-01-12 21:33:21,127 - save_folder: checkpoints/
+2025-01-12 21:33:21,127 - init_gama: 1
+2025-01-12 21:33:21,127 - dataset: bcss
+2025-01-12 21:33:21,127 - log_dir: logs/stage1/bcss/exp01
+2025-01-12 21:33:21,127 - ----------
+2025-01-12 21:33:27,013 - Session started:
+2025-01-12 21:33:27,013 - Sun Jan 12 21:33:27 2025

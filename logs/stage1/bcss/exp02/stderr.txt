@@ -1,0 +1,31 @@
+2025-01-12 22:47:48,070 - Process Process-67:
+2025-01-12 22:47:48,070 - Process Process-65:
+2025-01-12 22:47:48,070 - Process Process-66:
+2025-01-12 22:47:48,070 - Process Process-69:
+2025-01-12 22:47:48,070 - Process Process-70:
+2025-01-12 22:47:48,070 - Process Process-68:
+2025-01-12 22:47:48,072 - Exception ignored in:
+2025-01-12 22:47:48,073 - <function _MultiProcessingDataLoaderIter.__del__ at 0x7fa334debc10>
+2025-01-12 22:47:48,073 - Traceback (most recent call last):
+2025-01-12 22:47:48,074 - File "/root/miniconda3/lib/python3.8/site-packages/torch/utils/data/dataloader.py", line 1358, in __del__
+2025-01-12 22:47:48,075 - self._shutdown_workers()
+2025-01-12 22:47:48,076 - File "/root/miniconda3/lib/python3.8/site-packages/torch/utils/data/dataloader.py", line 1322, in _shutdown_workers
+2025-01-12 22:47:48,077 - w.join(timeout=_utils.MP_STATUS_CHECK_INTERVAL)
+2025-01-12 22:47:48,077 - File "/root/miniconda3/lib/python3.8/multiprocessing/process.py", line 149, in join
+2025-01-12 22:47:48,078 - res = self._popen.wait(timeout)
+2025-01-12 22:47:48,078 - File "/root/miniconda3/lib/python3.8/multiprocessing/popen_fork.py", line 44, in wait
+2025-01-12 22:47:48,078 - if not wait([self.sentinel], timeout):
+2025-01-12 22:47:48,078 - File "/root/miniconda3/lib/python3.8/multiprocessing/connection.py", line 931, in wait
+2025-01-12 22:47:48,079 - ready = selector.select(timeout)
+2025-01-12 22:47:48,080 - File "/root/miniconda3/lib/python3.8/selectors.py", line 415, in select
+2025-01-12 22:47:48,080 - fd_event_list = self._selector.poll(timeout)
+2025-01-12 22:47:48,080 - KeyboardInterrupt
+2025-01-12 22:47:48,081 - :
+2025-01-12 22:47:48,084 - Traceback (most recent call last):
+2025-01-12 22:47:48,086 - File "1_train_stage1.py", line 230, in <module>
+2025-01-12 22:47:48,087 - train_phase(args)
+2025-01-12 22:47:48,087 - File "1_train_stage1.py", line 148, in train_phase
+2025-01-12 22:47:48,088 - torch.cuda.empty_cache()  # 清理显存
+2025-01-12 22:47:48,088 - File "/root/miniconda3/lib/python3.8/site-packages/torch/cuda/memory.py", line 114, in empty_cache
+2025-01-12 22:47:48,088 - torch._C._cuda_emptyCache()
+2025-01-12 22:47:48,088 - KeyboardInterrupt
