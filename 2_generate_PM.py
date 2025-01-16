@@ -6,6 +6,7 @@ from torch.backends import cudnn
 cudnn.enabled = True
 from tool.infer_fun import create_pseudo_mask
 
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
