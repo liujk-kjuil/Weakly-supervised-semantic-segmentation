@@ -37,6 +37,8 @@ def train_phase(args):
     for key, value in vars(args).items():
         print(f"  {key}: {value}")
     print('----------')
+    print("No PDA used")
+    print('----------')
 
     # 定义数据增强和预处理操作
     transform_train = transforms.Compose([
@@ -107,10 +109,11 @@ def train_phase(args):
             label = label.cuda(non_blocking=True)  # 将标签移动到 GPU
 
             # 是否启用PDA
-            if ep > 2:
-                enable_PDA = 1
-            else:
-                enable_PDA = 0
+            # if ep > 2:
+            #     enable_PDA = 1
+            # else:
+            #     enable_PDA = 0
+            enable_PDA = 0
 
             # 前向传播，获取输出和特征
             x, feature, y = model(img.cuda(), enable_PDA)
@@ -167,9 +170,9 @@ def train_phase(args):
                 writer.add_scalar('Accuracy/Accuracy', avg_meter.pop('avg_ep_acc'), optimizer.global_step)
 
         # 在训练过程中动态调整 gama 值
-        if model.gama > 0.65:
-            model.gama = model.gama * 0.98
-        print('Gama of progressive dropout attention is: %.8f' % (model.gama))
+        # if model.gama > 0.65:
+        #     model.gama = model.gama * 0.98
+        # print('Gama of progressive dropout attention is: %.8f' % (model.gama))
 
     # 保存训练后的模型
     torch.save(model.state_dict(), os.path.join(args.save_folder, 'stage1_checkpoint_trained_on_' + args.dataset + '.pth'))
@@ -206,7 +209,7 @@ def test_phase(args):
 
 
 if __name__ == '__main__':
-    logger = MyLogger(log_root="logs/stage1/bcss")
+    logger = MyLogger(log_root="logs/stage1/luad")
     parser = argparse.ArgumentParser()
     parser.add_argument("--batch_size", default=64, type=int)
     parser.add_argument("--max_epoches", default=20, type=int)

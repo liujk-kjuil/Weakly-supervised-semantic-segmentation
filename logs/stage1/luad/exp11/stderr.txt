@@ -1,0 +1,23 @@
+2025-01-16 21:34:49,880 - Exception ignored in:
+2025-01-16 21:34:49,880 - <function _MultiProcessingDataLoaderIter.__del__ at 0x7fbe9c8b2c10>
+2025-01-16 21:34:49,880 - Traceback (most recent call last):
+2025-01-16 21:34:49,880 - File "/root/miniconda3/lib/python3.8/site-packages/torch/utils/data/dataloader.py", line 1358, in __del__
+2025-01-16 21:34:49,881 - self._shutdown_workers()
+2025-01-16 21:34:49,881 - File "/root/miniconda3/lib/python3.8/site-packages/torch/utils/data/dataloader.py", line 1322, in _shutdown_workers
+2025-01-16 21:34:49,881 - w.join(timeout=_utils.MP_STATUS_CHECK_INTERVAL)
+2025-01-16 21:34:49,881 - File "/root/miniconda3/lib/python3.8/multiprocessing/process.py", line 149, in join
+2025-01-16 21:34:49,882 - res = self._popen.wait(timeout)
+2025-01-16 21:34:49,882 - File "/root/miniconda3/lib/python3.8/multiprocessing/popen_fork.py", line 44, in wait
+2025-01-16 21:34:49,882 - if not wait([self.sentinel], timeout):
+2025-01-16 21:34:49,882 - File "/root/miniconda3/lib/python3.8/multiprocessing/connection.py", line 931, in wait
+2025-01-16 21:34:49,882 - ready = selector.select(timeout)
+2025-01-16 21:34:49,882 - File "/root/miniconda3/lib/python3.8/selectors.py", line 415, in select
+2025-01-16 21:34:49,882 - fd_event_list = self._selector.poll(timeout)
+2025-01-16 21:34:49,882 - KeyboardInterrupt
+2025-01-16 21:34:49,882 - :
+2025-01-16 21:34:49,885 - Traceback (most recent call last):
+2025-01-16 21:34:49,886 - File "1_train_stage1.py", line 230, in <module>
+2025-01-16 21:34:49,886 - train_phase(args)
+2025-01-16 21:34:49,887 - File "1_train_stage1.py", line 116, in train_phase
+2025-01-16 21:34:49,887 - x, feature, y = model(img.cuda(), enable_PDA)
+2025-01-16 21:34:49,887 - KeyboardInterrupt
