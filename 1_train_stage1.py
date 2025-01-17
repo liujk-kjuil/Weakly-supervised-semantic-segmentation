@@ -109,11 +109,11 @@ def train_phase(args):
             label = label.cuda(non_blocking=True)  # 将标签移动到 GPU
 
             # 是否启用PDA
-            # if ep > 2:
-            #     enable_PDA = 1
-            # else:
-            #     enable_PDA = 0
-            enable_PDA = 0
+            if ep > 2:
+                enable_PDA = 1
+            else:
+                enable_PDA = 0
+            # enable_PDA = 0
 
             # 前向传播，获取输出和特征
             x, feature, y = model(img.cuda(), enable_PDA)
@@ -214,7 +214,7 @@ if __name__ == '__main__':
     parser.add_argument("--batch_size", default=64, type=int)
     parser.add_argument("--max_epoches", default=20, type=int)
     parser.add_argument("--network", default="network.resnet38_cls", type=str)
-    parser.add_argument("--lr", default=0.01, type=float)
+    parser.add_argument("--lr", default=0.005, type=float)
     parser.add_argument("--num_workers", default=10, type=int)
     parser.add_argument("--wt_dec", default=5e-4, type=float)
     parser.add_argument("--session_name", default="Stage 1", type=str)
