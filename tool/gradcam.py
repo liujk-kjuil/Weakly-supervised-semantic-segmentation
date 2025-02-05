@@ -142,6 +142,81 @@ class GradCam:
         cam = cv2.resize(cam, input_img.shape[2:])##
         return cam, output
 
+
+class GradCamPlusPlus:
+    """
+    grad_cam_plus_plus = GradCamPlusPlus(
+        model=model,
+        feature_module=model.layer4,
+        target_layer_names=["2"],
+        use_cuda=args.use_cuda
+    )
+    """
+
+    def __init__(self, model, feature_module, target_layer_names, use_cuda):
+        self.model = model
+        self.feature_module = feature_module
+        self.model.eval()
+        self.cuda = use_cuda
+        if self.cuda:
+            self.model = model.cuda()
+
+        self.extractor = ModelOutputs(self.model, self.feature_module, target_layer_names)
+
+    def forward(self, input_img):
+        return self.model(input_img)
+
+    def __call__(self, input_img, target_category=None):
+        if self.cuda:
+            input_img = input_img.cuda()
+
+        # Get features and outputs
+        features, output = self.extractor(input_img)
+
+        if target_category is None:
+            target_category = np.argmax(output.cpu().data.numpy())
+
+        one_hot = np.zeros((1, output.size()[-1]), dtype=np.float32)
+        one_hot[0][target_category] = 1
+        one_hot = torch.from_numpy(one_hot).requires_grad_(True)
+        if self.cuda:
+            one_hot = one_hot.cuda()
+
+        one_hot = torch.sum(one_hot * output)
+
+        self.feature_module.zero_grad()
+        self.model.zero_grad()
+        one_hot.backward(retain_graph=True)
+
+        # Gradients and features
+        gradients = self.extractor.get_gradients()[-1]  # Gradients for the target layer
+        activations = features[-1]                     # Features from the target layer
+
+        gradients = gradients.cpu().data.numpy()[0, :]
+        activations = activations.cpu().data.numpy()[0, :]
+
+        # Compute alpha coefficients
+        numerator = gradients**2
+        denominator = 2 * gradients**2 + np.sum(activations * gradients**3, axis=(1, 2), keepdims=True)
+        denominator = np.where(denominator != 0, denominator, 1e-10)  # Avoid division by zero
+        alphas = numerator / denominator
+
+        # Compute weights
+        weights = np.sum(alphas * np.maximum(gradients, 0), axis=(1, 2))
+
+        # Compute Grad CAM++
+        cam = np.zeros(activations.shape[1:], dtype=np.float32)
+        for i, w in enumerate(weights):
+            cam += w * activations[i, :, :]
+
+        cam = cv2.resize(cam, input_img.shape[2:])  # Resize to input size
+        cam = np.maximum(cam, 0)  # ReLU
+        # cam = cam / np.max(cam) if np.max(cam) != 0 else cam  # Normalize
+
+        return cam, output
+
+
+
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--use-cuda', action='store_true', default=False,
