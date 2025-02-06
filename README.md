@@ -68,7 +68,7 @@ python 2_generate_PM.py --dataroot datasets/LUAD-HistoSeg --dataset luad --weigh
 #### 3、Train the segmentation model with multi-layer pesudo masks: 
 
 ```
-python 3_train_stage2.py --dataset luad --dataroot datasets/LUAD-HistoSeg --epochs 20 -- Is_GM True --resume_stage1 checkpoints/stage1_checkpoint_trained_on_luad.pth --resume init_weights/deeplab-resnet.pth.tar
+python 3_train_stage2.py --dataset luad --dataroot datasets/LUAD-HistoSeg --epochs 20 -- Is_GM True  --resume init_weights/deeplab-resnet.pth.tar
 ```
 
 ## Citation

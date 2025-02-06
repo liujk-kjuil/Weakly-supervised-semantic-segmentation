@@ -17,7 +17,7 @@ class Trainer(object):
         self.args = args
         # Define
         self.saver = Saver(args)
-        self.summary = TensorboardSummary('logs')
+        self.summary = TensorboardSummary('logs/stage2')
         self.writer = self.summary.create_summary()
         kwargs = {'num_workers': args.workers, 'pin_memory': False}
         self.train_loader, self.val_loader, self.test_loader = make_data_loader(args, **kwargs)
@@ -200,7 +200,7 @@ def main():
     parser.add_argument('--n_class', type=int, default=4)
     # training hyper params
     parser.add_argument('--epochs', type=int, default=30, metavar='N')
-    parser.add_argument('--batch-size', type=int, default=20, metavar='N')
+    parser.add_argument('--batch-size', type=int, default=64, metavar='N')
     # optimizer params
     parser.add_argument('--lr', type=float, default=0.01, metavar='LR')
     parser.add_argument('--lr-scheduler', type=str, default='poly',choices=['poly', 'step', 'cos'])
@@ -229,7 +229,11 @@ def main():
             args.sync_bn = True
         else:
             args.sync_bn = False
-    print(args)
+    # print(args)
+    print("Arguments:")
+    for key, value in vars(args).items():
+        print(f"  {key}: {value}")
+    print('----------')
     trainer = Trainer(args)
     for epoch in range(trainer.args.epochs):
         trainer.training(epoch)

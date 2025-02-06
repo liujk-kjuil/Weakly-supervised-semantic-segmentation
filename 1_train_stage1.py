@@ -37,8 +37,8 @@ def train_phase(args):
     for key, value in vars(args).items():
         print(f"  {key}: {value}")
     print('----------')
-    print("No PDA used")
-    print('----------')
+    # print("No PDA used")
+    # print('----------')
 
     # 定义数据增强和预处理操作
     transform_train = transforms.Compose([
