@@ -3,7 +3,7 @@ import numpy as np
 
 class Evaluator(object):
     def __init__(self, num_class):
-        self.num_class = num_class
+        self.num_class = num_class+1
         self.confusion_matrix = np.zeros((self.num_class,)*2)
 
     def Pixel_Accuracy(self):
@@ -11,28 +11,28 @@ class Evaluator(object):
         return Acc
 
     def Pixel_Accuracy_Class(self):
-        Acc = np.diag(self.confusion_matrix) / self.confusion_matrix.sum(axis=1)
+        Acc = np.diag(self.confusion_matrix)[0:4] / self.confusion_matrix.sum(axis=1)[0:4]
         Acc = np.nanmean(Acc)
         return Acc
 
     def Mean_Intersection_over_Union(self):
-        ious = np.diag(self.confusion_matrix) / (
+        ious = np.diag(self.confusion_matrix)[0:4] / (
                     np.sum(self.confusion_matrix, axis=1) + np.sum(self.confusion_matrix, axis=0) -
-                    np.diag(self.confusion_matrix))
+                    np.diag(self.confusion_matrix))[0:4]
         MIoU = np.nanmean(ious)
         return MIoU
 
     def Intersection_over_Union(self):
-        ious = np.diag(self.confusion_matrix) / (
+        ious = np.diag(self.confusion_matrix)[0:4] / (
                     np.sum(self.confusion_matrix, axis=1) + np.sum(self.confusion_matrix, axis=0) -
-                    np.diag(self.confusion_matrix))
+                    np.diag(self.confusion_matrix))[0:4]
         return ious
 
     def Frequency_Weighted_Intersection_over_Union(self):
-        freq = np.sum(self.confusion_matrix, axis=1) / np.sum(self.confusion_matrix)
-        iu = np.diag(self.confusion_matrix) / (
+        freq = np.sum(self.confusion_matrix, axis=1)[0:4] / np.sum(self.confusion_matrix)
+        iu = np.diag(self.confusion_matrix)[0:4] / (
                     np.sum(self.confusion_matrix, axis=1) + np.sum(self.confusion_matrix, axis=0) -
-                    np.diag(self.confusion_matrix))
+                    np.diag(self.confusion_matrix))[0:4]
 
         FWIoU = (freq[freq > 0] * iu[freq > 0]).sum()
         return FWIoU

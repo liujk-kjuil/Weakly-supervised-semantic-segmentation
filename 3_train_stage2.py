@@ -67,7 +67,7 @@ class Trainer(object):
                 self.model.load_state_dict(checkpoint['state_dict'])
             if args.ft:
                 self.optimizer.load_state_dict(checkpoint['optimizer'])
-            print("=> loaded checkpoint '{}' ".format(args.resume))
+            print("\n=> loaded checkpoint '{}' ".format(args.resume))
 
     def training(self, epoch):
         train_loss = 0.0
@@ -100,16 +100,21 @@ class Trainer(object):
         print('Loss: %.3f' % train_loss)
 
     def validation(self, epoch):
+        print('Validation:')
         self.model.eval()
         self.evaluator.reset()
         tbar = tqdm(self.val_loader, desc='\r')
-        test_loss = 0.0
+        val_loss = 0.0
         for i, sample in enumerate(tbar):
             image, target = sample[0]['image'], sample[0]['label']
             if self.args.cuda:
                 image, target = image.cuda(), target.cuda()
             with torch.no_grad():
                 output = self.model(image)
+                one = torch.ones((output.shape[0],1,224,224)).cuda()
+                output = torch.cat([output,(100 * one * (target==4).unsqueeze(dim = 1))],dim = 1)
+                loss = self.criterion(output, target)  # 计算损失
+                val_loss += loss.item()  # 累加损失
             pred = output.data.cpu().numpy()
             target = target.cpu().numpy()
             pred = np.argmax(pred, axis=1)
@@ -123,15 +128,15 @@ class Trainer(object):
         mIoU = self.evaluator.Mean_Intersection_over_Union()
         ious = self.evaluator.Intersection_over_Union()
         FWIoU = self.evaluator.Frequency_Weighted_Intersection_over_Union()
-        self.writer.add_scalar('val/total_loss_epoch', test_loss, epoch)
+        self.writer.add_scalar('val/total_loss_epoch', val_loss, epoch)
         self.writer.add_scalar('val/mIoU', mIoU, epoch)
         self.writer.add_scalar('val/Acc', Acc, epoch)
         self.writer.add_scalar('val/Acc_class', Acc_class, epoch)
         self.writer.add_scalar('val/fwIoU', FWIoU, epoch)
-        print('Validation:')
+        # print('Validation:')
         print('[Epoch: %d, numImages: %5d]' % (epoch, i * self.args.batch_size + image.data.shape[0]))
         print("Acc:{}, Acc_class:{}, mIoU:{}, fwIoU: {}".format(Acc, Acc_class, mIoU, FWIoU))
-        print('Loss: %.3f' % test_loss)
+        print('Loss: %.3f' % val_loss)
         print('IoUs: ', ious)
 
         if mIoU > self.best_pred:
@@ -139,16 +144,18 @@ class Trainer(object):
             self.saver.save_checkpoint({
                 'state_dict': self.model.module.state_dict(),
                 'optimizer': self.optimizer.state_dict()
-            }, 'stage2_checkpoint_trained_on_'+self.args.dataset+'.pth')
+            }, 'stage2_checkpoint_trained_on_' + self.args.dataset + '.pth')
+            
     def load_the_best_checkpoint(self):
         checkpoint = torch.load('checkpoints/stage2_checkpoint_trained_on_'+self.args.dataset+'.pth')
         self.model.module.load_state_dict(checkpoint['state_dict'], strict=False)
+  
     def test(self, epoch, Is_GM):
         self.load_the_best_checkpoint()
         self.model.eval()
         self.evaluator.reset()
         tbar = tqdm(self.test_loader, desc='\r')
-        test_loss = 0.0
+        # test_loss = 0.0
         for i, sample in enumerate(tbar):
             image, target = sample[0]['image'], sample[0]['label']
             if self.args.cuda:
@@ -174,16 +181,17 @@ class Trainer(object):
         mIoU = self.evaluator.Mean_Intersection_over_Union()
         ious = self.evaluator.Intersection_over_Union()
         FWIoU = self.evaluator.Frequency_Weighted_Intersection_over_Union()
-        self.writer.add_scalar('val/total_loss_epoch', test_loss, epoch)
-        self.writer.add_scalar('val/mIoU', mIoU, epoch)
-        self.writer.add_scalar('val/Acc', Acc, epoch)
-        self.writer.add_scalar('val/Acc_class', Acc_class, epoch)
-        self.writer.add_scalar('val/fwIoU', FWIoU, epoch)
-        print('Test:')
+        # self.writer.add_scalar('val/total_loss_epoch', test_loss, epoch)
+        # self.writer.add_scalar('val/mIoU', mIoU, epoch)
+        # self.writer.add_scalar('val/Acc', Acc, epoch)
+        # self.writer.add_scalar('val/Acc_class', Acc_class, epoch)
+        # self.writer.add_scalar('val/fwIoU', FWIoU, epoch)
+        print('\nTest:')
         print('[numImages: %5d]' % (i * self.args.batch_size + image.data.shape[0]))
         print("Acc:{}, Acc_class:{}, mIoU:{}, fwIoU: {}".format(Acc, Acc_class, mIoU, FWIoU))
-        print('Loss: %.3f' % test_loss)
+        # print('Loss: %.3f' % test_loss)
         print('IoUs: ', ious)
+
 
 def main():
     parser = argparse.ArgumentParser(description="WSSS Stage2")
@@ -240,6 +248,7 @@ def main():
         trainer.validation(epoch)
     trainer.test(epoch, args.Is_GM)
     trainer.writer.close()
+
 
 if __name__ == "__main__":
    main()
