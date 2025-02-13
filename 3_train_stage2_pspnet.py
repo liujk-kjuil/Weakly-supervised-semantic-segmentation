@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 import segmentation_models_pytorch as smp
 import torch
+import torch.nn.functional as F
 import torch.nn as nn
 import torchvision.transforms as transforms
 from PIL import Image
@@ -103,10 +104,9 @@ def generate_matrix(gt_image, pre_image, num_class):
 
 
 def compute_metrics(confusion_matrix):
-    acc = np.diag(confusion_matrix)[0:5].sum() / confusion_matrix.sum()
+    acc = np.diag(confusion_matrix)[0:4].sum() / confusion_matrix.sum()
     ious = np.diag(confusion_matrix)[0:4] / (np.sum(confusion_matrix, axis=1) + np.sum(confusion_matrix,
-                                                                                       axis=0) - np.diag(
-        confusion_matrix))[0:4]
+                                                                                       axis=0) - np.diag(confusion_matrix))[0:4]
     miou = np.nanmean(ious)
     freq = np.sum(confusion_matrix, axis=1)[0:4] / np.sum(confusion_matrix)
     fwiou = (freq[freq > 0] * ious[freq > 0]).sum()
@@ -122,9 +122,46 @@ def poly_lr_scheduler(optimizer, init_lr, epoch, max_epochs, power=0.9):
     return new_lr
 
 
-def train(model, train_loader, val_loader, args, loggers, run_dir):
+class ONSSLoss(nn.Module):
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, pred: torch.Tensor, pseudo_label: torch.Tensor):
+        """
+        Args:
+            pred: 模型输出 [B, C, H, W]
+            pseudo_label: 伪标签 [B, H, W]
+        Returns:
+            加权后的损失值
+        """
+        B, C, H, W = pred.shape
+        
+        # Step 1: 计算逐像素交叉熵损失（不求和）
+        loss_map = F.cross_entropy(pred, pseudo_label, reduction='none')  # [B, H, W]
+        
+        # Step 2: 计算权重矩阵 W
+        # 对损失取负，在 H*W 维度做 softmax
+        neg_loss = -loss_map  # [B, H, W]
+        neg_loss_flat = neg_loss.view(B, -1)  # [B, H*W]
+        sm_neg_loss = F.softmax(neg_loss_flat, dim=1).view(B, H, W)  # [B, H, W]
+        
+        # 计算均值并归一化
+        mean_sm = sm_neg_loss.mean(dim=(1, 2), keepdim=True)  # [B, 1, 1]
+        W = sm_neg_loss / (mean_sm + 1e-8)  # [B, H, W]
+        
+        # Step 3: 加权损失（注意梯度分离）
+        weighted_loss = loss_map * W.detach()  # 分离 W 的梯度
+        total_loss = weighted_loss.mean()  # 最终标量损失
+        
+        return total_loss
+
+
+def train(model, train_loader, val_loader, args, loggers, run_dir, save_dir):
     optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weight_decay)
-    criterion = nn.CrossEntropyLoss()
+    if args.onss:
+        criterion = ONSSLoss()
+    else:
+        criterion = nn.CrossEntropyLoss()
     best_miou = 0.0
 
     with tensorboard_writer(run_dir) as writer:
@@ -150,7 +187,7 @@ def train(model, train_loader, val_loader, args, loggers, run_dir):
             writer.add_scalar("Loss/Train", avg_train_loss, epoch)
             writer.add_scalar("LearningRate", current_lr, epoch)
 
-            val_loss, miou, fwiou, acc, ious = evaluate_model(model, val_loader, criterion, compute_loss=True)
+            val_loss, miou, fwiou, acc, ious = evaluate_model(args, model, val_loader, compute_loss=True)
             writer.add_scalar("Loss/Val", val_loss, epoch)
             writer.add_scalar("Metric/MIoU", miou, epoch)
             writer.add_scalar("Metric/FWIoU", fwiou, epoch)
@@ -165,21 +202,20 @@ def train(model, train_loader, val_loader, args, loggers, run_dir):
             loggers.info(
                 f"Epoch {epoch + 1}: Train Loss = {avg_train_loss:.4f}, Val Loss = {val_loss:.4f}, \n"
                 f"MIoU = {miou:.4f}, FWIoU = {fwiou:.4f}, Acc = {acc:.4f}, \n"
-                f"TE IoU = {ious[0]:.4f}, NEC IoU = {ious[1]:.4f}, LYM IoU = {ious[2]:.4f}, TAS IoU = {ious[3]:.4f}, \n"
-                f"LR = {current_lr:.6f}"
+                f"TE IoU = {ious[0]:.4f}, NEC IoU = {ious[1]:.4f}, LYM IoU = {ious[2]:.4f}, TAS IoU = {ious[3]:.4f}"
             )
 
             if miou > best_miou:
                 best_miou = miou
-                torch.save(model.state_dict(), os.path.join(run_dir, "best_pspnet.pth"))
+                torch.save(model.state_dict(), os.path.join(save_dir, "best_pspnet.pth"))
                 loggers.info(f"Epoch {epoch + 1}: 最优模型已保存")
 
-            torch.save(model.state_dict(), os.path.join(run_dir, "latest_pspnet.pth"))
+            torch.save(model.state_dict(), os.path.join(save_dir, "latest_pspnet.pth"))
             loggers.info("最新模型已保存")
 
 
 # ------------- 6. 评估代码 -------------
-def evaluate_model(model, data_loader, criterion=None, model_path=None, num_classes=5, compute_loss=False):
+def evaluate_model(args, model, data_loader, model_path=None, num_classes=4, compute_loss=False):
     """通用评估函数，可用于验证集和测试集。
 
     参数：
@@ -196,6 +232,11 @@ def evaluate_model(model, data_loader, criterion=None, model_path=None, num_clas
     model.eval()
     confusion_matrix = np.zeros((num_classes, num_classes))
     running_loss = 0.0
+    
+    if args.onss:
+        criterion = ONSSLoss()
+    else:
+        criterion = nn.CrossEntropyLoss()
 
     with torch.no_grad():
         for images, masks in tqdm(data_loader, desc="Evaluating"):
@@ -205,7 +246,7 @@ def evaluate_model(model, data_loader, criterion=None, model_path=None, num_clas
             one = torch.ones((outputs.shape[0], 1, 224, 224), device=device)
             outputs = torch.cat([outputs, (100 * one * (masks == 4).unsqueeze(dim=1))], dim=1)
 
-            if compute_loss and criterion:
+            if compute_loss:
                 loss = criterion(outputs, masks)
                 running_loss += loss.item()
 
@@ -225,7 +266,9 @@ def evaluate_model(model, data_loader, criterion=None, model_path=None, num_clas
 def main(args):
     timestamp = time.strftime('%Y%m%d-%H%M%S')
     run_dir = os.path.join(args.log_dir, timestamp)
+    save_dir = os.path.join(args.checkpoint, timestamp)
     os.makedirs(run_dir, exist_ok=True)
+    os.makedirs(save_dir, exist_ok=True)
 
     loggers = setup_logging(run_dir)
 
@@ -258,21 +301,21 @@ def main(args):
     loggers.info("训练开始")
     loggers.info(f"训练参数: {vars(args)}")  # 记录所有参数
 
-    train(model, train_loader, val_loader, args, loggers, run_dir)
+    train(model, train_loader, val_loader, args, loggers, run_dir, save_dir)
 
     # 保存最优模型和最新模型到新的运行目录
-    best_model_path = os.path.join(run_dir, "best_pspnet.pth")
-    latest_model_path = os.path.join(run_dir, "latest_pspnet.pth")
+    best_model_path = os.path.join(save_dir, "best_pspnet.pth")
+    latest_model_path = os.path.join(save_dir, "latest_pspnet.pth")
 
     # 测试最优模型
-    test_loss, miou, fwiou, acc, ious = evaluate_model(model, test_loader, model_path=best_model_path)
+    test_loss, miou, fwiou, acc, ious = evaluate_model(args, model, test_loader, model_path=best_model_path)
     loggers.info(
         f"最优模型测试结果: MIoU = {miou:.4f}, FWIoU = {fwiou:.4f}, Acc = {acc:.4f}, "
         f"TE IoU = {ious[0]:.4f}, NEC IoU = {ious[1]:.4f}, LYM IoU = {ious[2]:.4f}, TAS IoU = {ious[3]:.4f}"
     )
 
     # 测试最新模型
-    test_loss, miou, fwiou, acc, ious = evaluate_model(model, test_loader, model_path=latest_model_path)
+    test_loss, miou, fwiou, acc, ious = evaluate_model(args, model, test_loader, model_path=latest_model_path)
     loggers.info(
         f"最新模型测试结果: MIoU = {miou:.4f}, FWIoU = {fwiou:.4f}, Acc = {acc:.4f}, "
         f"TE IoU = {ious[0]:.4f}, NEC IoU = {ious[1]:.4f}, LYM IoU = {ious[2]:.4f}, TAS IoU = {ious[3]:.4f}"
@@ -281,14 +324,17 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="PSPNet Pathology Segmentation Training")
-    parser.add_argument("--batch_size", type=int, default=64, help="Batch size for training")
-    parser.add_argument("--num_workers", type=int, default=4, help="Number of training workers")
+    parser.add_argument("--onss", type=bool, default=False, help="Whether to use onss")
+    parser.add_argument("--Grad_CAM_pp", type=bool, default=False, help="Whether to use Grad CAM++")
+    parser.add_argument("--batch_size", type=int, default=128, help="Batch size for training")
+    parser.add_argument("--num_workers", type=int, default=10, help="Number of training workers")
     parser.add_argument("--learning_rate", type=float, default=0.01, help="Learning rate")
-    parser.add_argument("--num_epochs", type=int, default=20, help="Number of training epochs")
-    parser.add_argument("--num_classes", type=int, default=10, help="Number of segmentation classes")
+    parser.add_argument("--num_epochs", type=int, default=60, help="Number of training epochs")
+    parser.add_argument("--num_classes", type=int, default=4, help="Number of segmentation classes")
     parser.add_argument("--weight_decay", type=float, default=1e-4, help="Weight decay for optimizer")
     parser.add_argument("--momentum", type=float, default=0.9, help="Momentum for optimizer")
     parser.add_argument("--log_dir", type=str, default="./runs", help="Directory to save logs")
+    parser.add_argument("--checkpoint", type=str, default="checkpoints/stage2", help="Directory to save checkpoints")
     parser.add_argument("--save_best_model", action="store_true", help="Save only the best model")
     parser.add_argument("--save_latest_model", action="store_true", help="Save the latest model after each epoch")
 

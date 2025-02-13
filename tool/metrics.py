@@ -3,7 +3,7 @@ import numpy as np
 
 class Evaluator(object):
     def __init__(self, num_class):
-        self.num_class = num_class+1
+        self.num_class = num_class
         self.confusion_matrix = np.zeros((self.num_class,)*2)
 
     def Pixel_Accuracy(self):
