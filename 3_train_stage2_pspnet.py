@@ -83,6 +83,43 @@ class PathologyDataset(Dataset):
         return image, mask
 
 
+class MultiLevelPathologyDataset(Dataset):
+    def __init__(self, image_dir, mask_dirs, transform=None):
+        """
+        Args:
+            image_dir: 原始图像目录
+            mask_dirs: 包含多个掩膜目录的列表（按层级顺序）
+            transform: 图像增强
+        """
+        self.image_dir = image_dir
+        self.mask_dirs = mask_dirs
+        self.image_filenames = sorted(os.listdir(image_dir))
+        # 验证所有掩膜目录文件数量一致
+        for d in mask_dirs:
+            assert len(os.listdir(d)) == len(self.image_filenames), f"掩膜目录 {d} 文件数量不匹配"
+        self.mask_filenames = [sorted(os.listdir(d)) for d in mask_dirs]
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.image_filenames)
+
+    def __getitem__(self, idx):
+        img_path = os.path.join(self.image_dir, self.image_filenames[idx])
+        image = cv2.imread(img_path)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        masks = []
+        for level, (mask_dir, filenames) in enumerate(zip(self.mask_dirs, self.mask_filenames)):
+            mask_path = os.path.join(mask_dir, filenames[idx])
+            mask = Image.open(mask_path)
+            mask = np.array(mask).astype(np.float32)
+            masks.append(torch.tensor(mask, dtype=torch.long))
+
+        if self.transform:
+            image = self.transform(image)
+        return image, masks  # 返回图像和多个掩膜层级
+
+
 # ------------- 3. 模型定义 -------------
 def load_pspnet(num_classes):
     model = smp.PSPNet(
@@ -104,7 +141,7 @@ def generate_matrix(gt_image, pre_image, num_class):
 
 
 def compute_metrics(confusion_matrix):
-    acc = np.diag(confusion_matrix)[0:4].sum() / confusion_matrix.sum()
+    acc = np.diag(confusion_matrix)[0:4].sum() / np.sum(confusion_matrix)
     ious = np.diag(confusion_matrix)[0:4] / (np.sum(confusion_matrix, axis=1) + np.sum(confusion_matrix,
                                                                                        axis=0) - np.diag(confusion_matrix))[0:4]
     miou = np.nanmean(ious)
@@ -123,9 +160,10 @@ def poly_lr_scheduler(optimizer, init_lr, epoch, max_epochs, power=0.9):
 
 
 class ONSSLoss(nn.Module):
-    def __init__(self):
+    def __init__(self, ignore_index: int):
         super().__init__()
-    
+        self.ignore_index = ignore_index
+
     def forward(self, pred: torch.Tensor, pseudo_label: torch.Tensor):
         """
         Args:
@@ -135,33 +173,33 @@ class ONSSLoss(nn.Module):
             加权后的损失值
         """
         B, C, H, W = pred.shape
-        
+
         # Step 1: 计算逐像素交叉熵损失
-        loss_map = F.cross_entropy(pred, pseudo_label, reduction='none')  # [B, H, W]
-        
+        loss_map = F.cross_entropy(pred, pseudo_label, ignore_index=self.ignore_index, reduction='none')  # [B, H, W]
+
         # Step 2: 计算权重矩阵 W
         # 对损失取负，在 H*W 维度做 softmax
         neg_loss = -loss_map  # [B, H, W]
         neg_loss_flat = neg_loss.view(B, -1)  # [B, H*W]
         sm_neg_loss = F.softmax(neg_loss_flat, dim=1).view(B, H, W)  # [B, H, W]
-        
+
         # 计算均值并归一化
         mean_sm = sm_neg_loss.mean(dim=(1, 2), keepdim=True)  # [B, 1, 1]
         W = sm_neg_loss / (mean_sm + 1e-8)  # [B, H, W]
-        
+
         # Step 3: 加权损失
         weighted_loss = loss_map * W.detach()  # 分离 W 的梯度
         total_loss = weighted_loss.mean()  # 最终标量损失
-        
+
         return total_loss
 
 
 def train(model, train_loader, val_loader, args, loggers, run_dir, save_dir):
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate, momentum=args.momentum, weight_decay=args.weight_decay)
+    optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate, momentum=args.momentum,weight_decay=args.weight_decay)
     if args.onss:
-        criterion = ONSSLoss()
+        criterion = ONSSLoss(ignore_index=4)
     else:
-        criterion = nn.CrossEntropyLoss()
+        criterion = nn.CrossEntropyLoss(ignore_index=4)
     best_miou = 0.0
 
     with tensorboard_writer(run_dir) as writer:
@@ -172,13 +210,16 @@ def train(model, train_loader, val_loader, args, loggers, run_dir, save_dir):
             # 更新学习率
             current_lr = poly_lr_scheduler(optimizer, args.learning_rate, epoch, args.num_epochs)
 
-            for images, masks in tqdm(train_loader, desc=f"Epoch {epoch + 1}/{args.num_epochs} (LR: {current_lr:.6f})"):
-                images, masks = images.to(device), masks.to(device)
+            for images, masks_list in tqdm(train_loader, desc=f"Epoch {epoch + 1}/{args.num_epochs} (LR: {current_lr:.6f})"):
+                images = images.to(device)
+                masks_list = [m.to(device) for m in masks_list]
+                loss_list = []
                 optimizer.zero_grad()
                 outputs = model(images)
-                one = torch.ones((outputs.shape[0], 1, 224, 224), device=device)
-                outputs = torch.cat([outputs, (100 * one * (masks == 4).unsqueeze(dim=1))], dim=1)
-                loss = criterion(outputs, masks)
+                for masks in masks_list:
+                    loss_list.append(criterion(outputs, masks))
+
+                loss = loss_list[0] * 0.6 + loss_list[1] * 0.2 + loss_list[2] * 0.2
                 loss.backward()
                 optimizer.step()
                 running_loss += loss.item()
@@ -222,19 +263,16 @@ def evaluate_model(args, model, data_loader, model_path=None, num_classes=4, com
     model.eval()
     confusion_matrix = np.zeros((num_classes, num_classes))
     running_loss = 0.0
-    
+
     if args.onss:
-        criterion = ONSSLoss()
+        criterion = ONSSLoss(ignore_index=4)
     else:
-        criterion = nn.CrossEntropyLoss()
+        criterion = nn.CrossEntropyLoss(ignore_index=4)
 
     with torch.no_grad():
         for images, masks in tqdm(data_loader, desc="Evaluating"):
             images, masks = images.to(device), masks.to(device)
             outputs = model(images)
-
-            one = torch.ones((outputs.shape[0], 1, 224, 224), device=device)
-            outputs = torch.cat([outputs, (100 * one * (masks == 4).unsqueeze(dim=1))], dim=1)
 
             if compute_loss:
                 loss = criterion(outputs, masks)
@@ -278,10 +316,18 @@ def main(args):
         transforms.Normalize(mean=[0., 0., 0.], std=[1., 1., 1.])
     ])
 
-    train_dataset = PathologyDataset("datasets/LUAD-HistoSeg/train", "datasets/LUAD-HistoSeg/train_PM/PM_bn7",
-                                     transform)
+    train_dataset = MultiLevelPathologyDataset(
+        image_dir="datasets/LUAD-HistoSeg/train",
+        mask_dirs=[
+            "datasets/LUAD-HistoSeg/train_PM/PM_bn7",
+            "datasets/LUAD-HistoSeg/train_PM/PM_b4_5",
+            "datasets/LUAD-HistoSeg/train_PM/PM_b5_2"
+        ],
+        transform=transform
+    )
     val_dataset = PathologyDataset("datasets/LUAD-HistoSeg/val/img", "datasets/LUAD-HistoSeg/val/mask", transform_val)
-    test_dataset = PathologyDataset("datasets/LUAD-HistoSeg/test/img", "datasets/LUAD-HistoSeg/test/mask", transform_val)
+    test_dataset = PathologyDataset("datasets/LUAD-HistoSeg/test/img", "datasets/LUAD-HistoSeg/test/mask",
+                                    transform_val)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
@@ -316,7 +362,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="PSPNet Pathology Segmentation Training")
     parser.add_argument("--onss", type=bool, default=False, help="Whether to use onss")
     parser.add_argument("--Grad_CAM_pp", type=bool, default=False, help="Whether to use Grad CAM++")
-    parser.add_argument("--batch_size", type=int, default=128, help="Batch size for training")
+    parser.add_argument("--batch_size", type=int, default=64, help="Batch size for training")
     parser.add_argument("--num_workers", type=int, default=10, help="Number of training workers")
     parser.add_argument("--learning_rate", type=float, default=0.01, help="Learning rate")
     parser.add_argument("--num_epochs", type=int, default=60, help="Number of training epochs")
