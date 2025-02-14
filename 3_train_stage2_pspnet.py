@@ -136,7 +136,7 @@ class ONSSLoss(nn.Module):
         """
         B, C, H, W = pred.shape
         
-        # Step 1: 计算逐像素交叉熵损失（不求和）
+        # Step 1: 计算逐像素交叉熵损失
         loss_map = F.cross_entropy(pred, pseudo_label, reduction='none')  # [B, H, W]
         
         # Step 2: 计算权重矩阵 W
@@ -149,7 +149,7 @@ class ONSSLoss(nn.Module):
         mean_sm = sm_neg_loss.mean(dim=(1, 2), keepdim=True)  # [B, 1, 1]
         W = sm_neg_loss / (mean_sm + 1e-8)  # [B, H, W]
         
-        # Step 3: 加权损失（注意梯度分离）
+        # Step 3: 加权损失
         weighted_loss = loss_map * W.detach()  # 分离 W 的梯度
         total_loss = weighted_loss.mean()  # 最终标量损失
         
@@ -216,16 +216,6 @@ def train(model, train_loader, val_loader, args, loggers, run_dir, save_dir):
 
 # ------------- 6. 评估代码 -------------
 def evaluate_model(args, model, data_loader, model_path=None, num_classes=4, compute_loss=False):
-    """通用评估函数，可用于验证集和测试集。
-
-    参数：
-    - model: 需要评估的模型
-    - data_loader: 数据集加载器
-    - criterion: 损失函数（仅用于验证）
-    - model_path: 若提供路径，则加载该模型
-    - num_classes: 类别数
-    - compute_loss: 是否计算损失（仅在验证时计算）
-    """
     if model_path:
         model.load_state_dict(torch.load(model_path, map_location=device))
 
@@ -252,7 +242,7 @@ def evaluate_model(args, model, data_loader, model_path=None, num_classes=4, com
 
             preds = torch.argmax(outputs, dim=1)
             preds, masks = preds.cpu().numpy(), masks.cpu().numpy()
-            preds[masks == 4] = 4  # 确保忽略类正确标记
+            preds[masks == 4] = 4
 
             confusion_matrix += generate_matrix(masks, preds, num_classes)
 
