@@ -85,16 +85,9 @@ class PathologyDataset(Dataset):
 
 class MultiLevelPathologyDataset(Dataset):
     def __init__(self, image_dir, mask_dirs, transform=None):
-        """
-        Args:
-            image_dir: 原始图像目录
-            mask_dirs: 包含多个掩膜目录的列表（按层级顺序）
-            transform: 图像增强
-        """
         self.image_dir = image_dir
         self.mask_dirs = mask_dirs
         self.image_filenames = sorted(os.listdir(image_dir))
-        # 验证所有掩膜目录文件数量一致
         for d in mask_dirs:
             assert len(os.listdir(d)) == len(self.image_filenames), f"掩膜目录 {d} 文件数量不匹配"
         self.mask_filenames = [sorted(os.listdir(d)) for d in mask_dirs]
@@ -117,7 +110,7 @@ class MultiLevelPathologyDataset(Dataset):
 
         if self.transform:
             image = self.transform(image)
-        return image, masks  # 返回图像和多个掩膜层级
+        return image, masks
 
 
 # ------------- 3. 模型定义 -------------
@@ -150,7 +143,7 @@ def compute_metrics(confusion_matrix):
     return miou, fwiou, acc, ious
 
 
-# ------------- 5. 训练代码 -------------
+# ------------- 5. 学习率调度 -------------
 def poly_lr_scheduler(optimizer, init_lr, epoch, max_epochs, power=0.9):
     """Poly 学习率衰减策略"""
     new_lr = init_lr * (1 - epoch / max_epochs) ** power
@@ -159,6 +152,7 @@ def poly_lr_scheduler(optimizer, init_lr, epoch, max_epochs, power=0.9):
     return new_lr
 
 
+# ------------- 6. 损失函数 -------------
 class ONSSLoss(nn.Module):
     def __init__(self, ignore_index: int):
         super().__init__()
@@ -194,6 +188,7 @@ class ONSSLoss(nn.Module):
         return total_loss
 
 
+# ------------- 7. 训练代码 -------------
 def train(model, train_loader, val_loader, args, loggers, run_dir, save_dir):
     optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate, momentum=args.momentum,weight_decay=args.weight_decay)
     if args.onss:
@@ -207,7 +202,6 @@ def train(model, train_loader, val_loader, args, loggers, run_dir, save_dir):
             model.train()
             running_loss = 0.0
 
-            # 更新学习率
             current_lr = poly_lr_scheduler(optimizer, args.learning_rate, epoch, args.num_epochs)
 
             for images, masks_list in tqdm(train_loader, desc=f"Epoch {epoch + 1}/{args.num_epochs} (LR: {current_lr:.6f})"):
@@ -234,7 +228,6 @@ def train(model, train_loader, val_loader, args, loggers, run_dir, save_dir):
             writer.add_scalar("Metric/FWIoU", fwiou, epoch)
             writer.add_scalar("Metric/Acc", acc, epoch)
 
-            # 记录 IoU
             writer.add_scalar("IoU/TE", ious[0], epoch)
             writer.add_scalar("IoU/NEC", ious[1], epoch)
             writer.add_scalar("IoU/LYM", ious[2], epoch)
@@ -255,7 +248,7 @@ def train(model, train_loader, val_loader, args, loggers, run_dir, save_dir):
             loggers.info("最新模型已保存")
 
 
-# ------------- 6. 评估代码 -------------
+# ------------- 8. 评估代码 -------------
 def evaluate_model(args, model, data_loader, model_path=None, num_classes=4, compute_loss=False):
     if model_path:
         model.load_state_dict(torch.load(model_path, map_location=device))
@@ -290,7 +283,7 @@ def evaluate_model(args, model, data_loader, model_path=None, num_classes=4, com
     return avg_loss, miou, fwiou, acc, ious
 
 
-# ------------- 7. 主程序 -------------
+# ------------- 9. 主程序 -------------
 def main(args):
     timestamp = time.strftime('%Y%m%d-%H%M%S')
     run_dir = os.path.join(args.log_dir, timestamp)
@@ -339,18 +332,15 @@ def main(args):
 
     train(model, train_loader, val_loader, args, loggers, run_dir, save_dir)
 
-    # 保存最优模型和最新模型到新的运行目录
     best_model_path = os.path.join(save_dir, "best_pspnet.pth")
     latest_model_path = os.path.join(save_dir, "latest_pspnet.pth")
 
-    # 测试最优模型
     test_loss, miou, fwiou, acc, ious = evaluate_model(args, model, test_loader, model_path=best_model_path)
     loggers.info(
         f"最优模型测试结果: MIoU = {miou:.4f}, FWIoU = {fwiou:.4f}, Acc = {acc:.4f}, "
         f"TE IoU = {ious[0]:.4f}, NEC IoU = {ious[1]:.4f}, LYM IoU = {ious[2]:.4f}, TAS IoU = {ious[3]:.4f}"
     )
 
-    # 测试最新模型
     test_loss, miou, fwiou, acc, ious = evaluate_model(args, model, test_loader, model_path=latest_model_path)
     loggers.info(
         f"最新模型测试结果: MIoU = {miou:.4f}, FWIoU = {fwiou:.4f}, Acc = {acc:.4f}, "
@@ -371,8 +361,6 @@ if __name__ == '__main__':
     parser.add_argument("--momentum", type=float, default=0.9, help="Momentum for optimizer")
     parser.add_argument("--log_dir", type=str, default="./runs", help="Directory to save logs")
     parser.add_argument("--checkpoint", type=str, default="checkpoints/stage2", help="Directory to save checkpoints")
-    parser.add_argument("--save_best_model", action="store_true", help="Save only the best model")
-    parser.add_argument("--save_latest_model", action="store_true", help="Save the latest model after each epoch")
 
     args = parser.parse_args()
     main(args)
