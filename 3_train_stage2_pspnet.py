@@ -3,6 +3,7 @@ import os
 import time
 from logging.handlers import RotatingFileHandler
 from contextlib import contextmanager
+import math
 
 import cv2
 import numpy as np
@@ -117,6 +118,7 @@ class MultiLevelPathologyDataset(Dataset):
 def load_pspnet(num_classes):
     model = smp.PSPNet(
         encoder_name="resnet101",
+        # encoder_name="resnet152",
         encoder_weights="imagenet",
         classes=num_classes,
         activation=None
@@ -150,6 +152,14 @@ def poly_lr_scheduler(optimizer, init_lr, epoch, max_epochs, power=0.9):
     for param_group in optimizer.param_groups:
         param_group['lr'] = new_lr
     return new_lr
+
+
+def cosine_lr_scheduler(optimizer, init_lr, epoch, max_epochs, eta_min=0.0):
+    """余弦退火学习率衰减策略"""
+    lr = eta_min + (init_lr - eta_min) * (1 + math.cos(math.pi * epoch / max_epochs)) / 2
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+    return lr
 
 
 # ------------- 6. 损失函数 -------------
@@ -202,7 +212,14 @@ def train(model, train_loader, val_loader, args, loggers, run_dir, save_dir):
             model.train()
             running_loss = 0.0
 
-            current_lr = poly_lr_scheduler(optimizer, args.learning_rate, epoch, args.num_epochs)
+            if args.lr_scheduler == "poly":
+                current_lr = poly_lr_scheduler(
+                    optimizer, args.learning_rate, epoch, args.num_epochs
+                )
+            elif args.lr_scheduler == "cosine":
+                current_lr = cosine_lr_scheduler(
+                    optimizer, args.learning_rate, epoch, args.num_epochs, args.eta_min
+                )
 
             for images, masks_list in tqdm(train_loader, desc=f"Epoch {epoch + 1}/{args.num_epochs} (LR: {current_lr:.6f})"):
                 images = images.to(device)
@@ -242,7 +259,7 @@ def train(model, train_loader, val_loader, args, loggers, run_dir, save_dir):
             if miou > best_miou:
                 best_miou = miou
                 torch.save(model.state_dict(), os.path.join(save_dir, "best_pspnet.pth"))
-                loggers.info(f"Epoch {epoch + 1}: 最优模型已保存")
+                loggers.info("最优模型已保存")
 
             torch.save(model.state_dict(), os.path.join(save_dir, "latest_pspnet.pth"))
             loggers.info("最新模型已保存")
@@ -361,6 +378,8 @@ if __name__ == '__main__':
     parser.add_argument("--momentum", type=float, default=0.9, help="Momentum for optimizer")
     parser.add_argument("--log_dir", type=str, default="./runs", help="Directory to save logs")
     parser.add_argument("--checkpoint", type=str, default="checkpoints/stage2", help="Directory to save checkpoints")
+    parser.add_argument("--lr_scheduler", type=str, default="poly", choices=["poly", "cosine"], help="学习率衰减策略")
+    parser.add_argument("--eta_min", type=float, default=0.0002, help="余弦退火策略的最小学习率")
 
     args = parser.parse_args()
     main(args)

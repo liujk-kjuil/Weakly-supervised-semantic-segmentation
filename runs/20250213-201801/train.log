@@ -496,3 +496,6 @@ TE IoU = 0.6858, NEC IoU = 0.5722, LYM IoU = 0.7143, TAS IoU = 0.7005
 2025-02-13 21:34:18,293 - INFO - 最新模型已保存
 2025-02-13 21:34:21,150 - INFO - 最优模型测试结果: MIoU = 0.6905, FWIoU = 0.7043, Acc = 0.8262, TE IoU = 0.7419, NEC IoU = 0.6381, LYM IoU = 0.7082, TAS IoU = 0.6736
 2025-02-13 21:34:24,297 - INFO - 最新模型测试结果: MIoU = 0.6802, FWIoU = 0.6998, Acc = 0.8236, TE IoU = 0.7389, NEC IoU = 0.6006, LYM IoU = 0.7092, TAS IoU = 0.6721
+
+onss Epoch = 120 learning_rate = 0.005
+效果一般

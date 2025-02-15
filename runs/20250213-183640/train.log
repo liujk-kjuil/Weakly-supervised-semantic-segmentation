@@ -621,3 +621,6 @@ TE IoU = 0.6771, NEC IoU = 0.6321, LYM IoU = 0.7384, TAS IoU = 0.7044
 2025-02-13 20:12:14,971 - INFO - 最新模型已保存
 2025-02-13 20:12:18,600 - INFO - 最优模型测试结果: MIoU = 0.7146, FWIoU = 0.7146, Acc = 0.8331, TE IoU = 0.7358, NEC IoU = 0.7096, LYM IoU = 0.7253, TAS IoU = 0.6878
 2025-02-13 20:12:22,436 - INFO - 最新模型测试结果: MIoU = 0.7047, FWIoU = 0.7080, Acc = 0.8287, TE IoU = 0.7314, NEC IoU = 0.6896, LYM IoU = 0.7155, TAS IoU = 0.6825
+
+onss learning_rate = 0.01 Epoch = 150 MIoU = 0.7146
+效果一般 不如普通交叉熵损失
