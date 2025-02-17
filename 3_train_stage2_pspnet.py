@@ -192,8 +192,8 @@ class ONSSLoss(nn.Module):
         W = sm_neg_loss / (mean_sm + 1e-8)  # [B, H, W]
 
         # Step 3: 加权损失
-        weighted_loss = loss_map * W.detach()  # 分离 W 的梯度
-        total_loss = weighted_loss.mean()  # 最终标量损失
+        weighted_loss = loss_map * W
+        total_loss = weighted_loss.mean()
 
         return total_loss
 
@@ -371,15 +371,15 @@ if __name__ == '__main__':
     parser.add_argument("--Grad_CAM_pp", type=bool, default=False, help="Whether to use Grad CAM++")
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size for training")
     parser.add_argument("--num_workers", type=int, default=10, help="Number of training workers")
-    parser.add_argument("--learning_rate", type=float, default=0.01, help="Learning rate")
+    parser.add_argument("--learning_rate", type=float, default=0.005, help="Learning rate")
     parser.add_argument("--num_epochs", type=int, default=60, help="Number of training epochs")
     parser.add_argument("--num_classes", type=int, default=4, help="Number of segmentation classes")
     parser.add_argument("--weight_decay", type=float, default=1e-4, help="Weight decay for optimizer")
     parser.add_argument("--momentum", type=float, default=0.9, help="Momentum for optimizer")
     parser.add_argument("--log_dir", type=str, default="./runs", help="Directory to save logs")
     parser.add_argument("--checkpoint", type=str, default="checkpoints/stage2", help="Directory to save checkpoints")
-    parser.add_argument("--lr_scheduler", type=str, default="poly", choices=["poly", "cosine"], help="学习率衰减策略")
-    parser.add_argument("--eta_min", type=float, default=0.0002, help="余弦退火策略的最小学习率")
+    parser.add_argument("--lr_scheduler", type=str, default="cosine", choices=["poly", "cosine"], help="学习率衰减策略")
+    parser.add_argument("--eta_min", type=float, default=0.0001, help="余弦退火策略的最小学习率")
 
     args = parser.parse_args()
     main(args)

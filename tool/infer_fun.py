@@ -13,7 +13,7 @@ import cv2
 from tool import infer_utils
 from tool.GenDataset import Stage1_InferDataset
 from torchvision import transforms
-from tool.gradcam import GradCam
+from tool.gradcam import GradCam, GradCamPlusPlus
 def CVImageToPIL(img):
     img = img[:,:,::-1]
     img = Image.fromarray(np.uint8(img))
@@ -102,8 +102,10 @@ def create_pseudo_mask(model, dataroot, fm, savepath, n_class, palette, dataset)
                                 shuffle=False,
                                 num_workers=8,
                                 pin_memory=False)
-    grad_cam = GradCam(model=model, feature_module=ffmm, \
-                target_layer_names=["1"], use_cuda=True)
+    # grad_cam = GradCam(model=model, feature_module=ffmm, \
+    #             target_layer_names=["1"], use_cuda=True)
+    grad_cam = GradCamPlusPlus(model=model, feature_module=ffmm,
+                                         target_layer_names=["1"], use_cuda=True)
     for iter, (img_name, img_list) in enumerate(infer_data_loader):      
         img_name = img_name[0]
         img_path = os.path.join(os.path.join(dataroot,'train'),img_name+'.png')
