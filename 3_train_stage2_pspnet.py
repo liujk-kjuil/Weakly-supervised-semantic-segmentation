@@ -136,11 +136,12 @@ def generate_matrix(gt_image, pre_image, num_class):
 
 
 def compute_metrics(confusion_matrix):
-    acc = np.diag(confusion_matrix)[0:4].sum() / np.sum(confusion_matrix)
-    ious = np.diag(confusion_matrix)[0:4] / (np.sum(confusion_matrix, axis=1) + np.sum(confusion_matrix,
-                                                                                       axis=0) - np.diag(confusion_matrix))[0:4]
+    diag = np.diag(confusion_matrix)
+    acc = np.sum(diag) / np.sum(confusion_matrix)
+    ious = diag / (np.sum(confusion_matrix, axis=1) + np.sum(confusion_matrix, axis=0) - diag)
+    ious = ious[0:4]
     miou = np.nanmean(ious)
-    freq = np.sum(confusion_matrix, axis=1)[0:4] / np.sum(confusion_matrix)
+    freq = np.sum(confusion_matrix, axis=1)[0:4] / np.sum(confusion_matrix[0:4])
     fwiou = (freq[freq > 0] * ious[freq > 0]).sum()
     return miou, fwiou, acc, ious
 
@@ -164,7 +165,7 @@ def cosine_lr_scheduler(optimizer, init_lr, epoch, max_epochs, eta_min=0.0):
 
 # ------------- 6. 损失函数 -------------
 class ONSSLoss(nn.Module):
-    def __init__(self, ignore_index: int):
+    def __init__(self, ignore_index : int = -100):
         super().__init__()
         self.ignore_index = ignore_index
 
@@ -192,7 +193,7 @@ class ONSSLoss(nn.Module):
         W = sm_neg_loss / (mean_sm + 1e-8)  # [B, H, W]
 
         # Step 3: 加权损失
-        weighted_loss = loss_map * W
+        weighted_loss = loss_map * W.detach()
         total_loss = weighted_loss.mean()
 
         return total_loss
@@ -201,10 +202,12 @@ class ONSSLoss(nn.Module):
 # ------------- 7. 训练代码 -------------
 def train(model, train_loader, val_loader, args, loggers, run_dir, save_dir):
     optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate, momentum=args.momentum,weight_decay=args.weight_decay)
-    if args.onss:
-        criterion = ONSSLoss(ignore_index=4)
-    else:
-        criterion = nn.CrossEntropyLoss(ignore_index=4)
+    criterion_1 = nn.CrossEntropyLoss()
+    criterion_2 = ONSSLoss()
+    # if args.onss:
+    #     criterion = ONSSLoss()
+    # else:
+    #     criterion = nn.CrossEntropyLoss()
     best_miou = 0.0
 
     with tensorboard_writer(run_dir) as writer:
@@ -227,10 +230,18 @@ def train(model, train_loader, val_loader, args, loggers, run_dir, save_dir):
                 loss_list = []
                 optimizer.zero_grad()
                 outputs = model(images)
-                for masks in masks_list:
-                    loss_list.append(criterion(outputs, masks))
+                # for masks in masks_list:
+                #     loss_list.append(criterion(outputs, masks))
+                if args.onss:
+                    loss_list.append(criterion_2(outputs, masks_list[0]))
+                else:
+                    loss_list.append(criterion_1(outputs, masks_list[0]))
+                
+                loss_list.append(criterion_1(outputs, masks_list[1]))
+                loss_list.append(criterion_1(outputs, masks_list[2]))
 
                 loss = loss_list[0] * 0.6 + loss_list[1] * 0.2 + loss_list[2] * 0.2
+                # loss = loss_list[0]
                 loss.backward()
                 optimizer.step()
                 running_loss += loss.item()
@@ -239,7 +250,7 @@ def train(model, train_loader, val_loader, args, loggers, run_dir, save_dir):
             writer.add_scalar("Loss/Train", avg_train_loss, epoch)
             writer.add_scalar("LearningRate", current_lr, epoch)
 
-            val_loss, miou, fwiou, acc, ious = evaluate_model(args, model, val_loader, compute_loss=True)
+            val_loss, miou, fwiou, acc, ious = evaluate_model(args, model, val_loader, num_classes=args.num_classes, compute_loss=True)
             writer.add_scalar("Loss/Val", val_loss, epoch)
             writer.add_scalar("Metric/MIoU", miou, epoch)
             writer.add_scalar("Metric/FWIoU", fwiou, epoch)
@@ -266,7 +277,7 @@ def train(model, train_loader, val_loader, args, loggers, run_dir, save_dir):
 
 
 # ------------- 8. 评估代码 -------------
-def evaluate_model(args, model, data_loader, model_path=None, num_classes=4, compute_loss=False):
+def evaluate_model(args, model, data_loader, model_path=None, num_classes=5, compute_loss=False):
     if model_path:
         model.load_state_dict(torch.load(model_path, map_location=device))
 
@@ -352,13 +363,13 @@ def main(args):
     best_model_path = os.path.join(save_dir, "best_pspnet.pth")
     latest_model_path = os.path.join(save_dir, "latest_pspnet.pth")
 
-    test_loss, miou, fwiou, acc, ious = evaluate_model(args, model, test_loader, model_path=best_model_path)
+    test_loss, miou, fwiou, acc, ious = evaluate_model(args, model, test_loader, num_classes=args.num_classes, model_path=best_model_path)
     loggers.info(
         f"最优模型测试结果: MIoU = {miou:.4f}, FWIoU = {fwiou:.4f}, Acc = {acc:.4f}, "
         f"TE IoU = {ious[0]:.4f}, NEC IoU = {ious[1]:.4f}, LYM IoU = {ious[2]:.4f}, TAS IoU = {ious[3]:.4f}"
     )
 
-    test_loss, miou, fwiou, acc, ious = evaluate_model(args, model, test_loader, model_path=latest_model_path)
+    test_loss, miou, fwiou, acc, ious = evaluate_model(args, model, test_loader, num_classes=args.num_classes, model_path=latest_model_path)
     loggers.info(
         f"最新模型测试结果: MIoU = {miou:.4f}, FWIoU = {fwiou:.4f}, Acc = {acc:.4f}, "
         f"TE IoU = {ious[0]:.4f}, NEC IoU = {ious[1]:.4f}, LYM IoU = {ious[2]:.4f}, TAS IoU = {ious[3]:.4f}"
@@ -369,11 +380,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="PSPNet Pathology Segmentation Training")
     parser.add_argument("--onss", type=bool, default=False, help="Whether to use onss")
     parser.add_argument("--Grad_CAM_pp", type=bool, default=False, help="Whether to use Grad CAM++")
-    parser.add_argument("--batch_size", type=int, default=64, help="Batch size for training")
+    parser.add_argument("--batch_size", type=int, default=16, help="Batch size for training")
     parser.add_argument("--num_workers", type=int, default=10, help="Number of training workers")
     parser.add_argument("--learning_rate", type=float, default=0.005, help="Learning rate")
-    parser.add_argument("--num_epochs", type=int, default=60, help="Number of training epochs")
-    parser.add_argument("--num_classes", type=int, default=4, help="Number of segmentation classes")
+    parser.add_argument("--num_epochs", type=int, default=50, help="Number of training epochs")
+    parser.add_argument("--num_classes", type=int, default=5, help="Number of segmentation classes")
     parser.add_argument("--weight_decay", type=float, default=1e-4, help="Weight decay for optimizer")
     parser.add_argument("--momentum", type=float, default=0.9, help="Momentum for optimizer")
     parser.add_argument("--log_dir", type=str, default="./runs", help="Directory to save logs")

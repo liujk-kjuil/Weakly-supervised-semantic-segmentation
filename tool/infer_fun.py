@@ -104,12 +104,14 @@ def create_pseudo_mask(model, dataroot, fm, savepath, n_class, palette, dataset)
                                 pin_memory=False)
     # grad_cam = GradCam(model=model, feature_module=ffmm, \
     #             target_layer_names=["1"], use_cuda=True)
-    grad_cam = GradCamPlusPlus(model=model, feature_module=ffmm,
-                                         target_layer_names=["1"], use_cuda=True)
+    # grad_cam = GradCamPlusPlus(model=model, feature_module=ffmm,
+    #                                      target_layer_names=["1"], use_cuda=True)
     for iter, (img_name, img_list) in enumerate(infer_data_loader):      
         img_name = img_name[0]
         img_path = os.path.join(os.path.join(dataroot,'train'),img_name+'.png')
         orig_img = np.asarray(Image.open(img_path))
+        grad_cam = GradCamPlusPlus(model=model, feature_module=ffmm,
+                                         target_layer_names=["1"], use_cuda=True)
         cam = []
         for i in range(n_class):
             target_category = i
