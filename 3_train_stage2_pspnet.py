@@ -230,6 +230,8 @@ def train(model, train_loader, val_loader, args, loggers, run_dir, save_dir):
                 loss_list = []
                 optimizer.zero_grad()
                 outputs = model(images)
+                one = torch.ones((outputs.shape[0],1,224,224)).cuda()
+                outputs = torch.cat([outputs,(100 * one * (masks_list[0]==4).unsqueeze(dim = 1))],dim = 1)
                 # for masks in masks_list:
                 #     loss_list.append(criterion(outputs, masks))
                 if args.onss:
@@ -277,7 +279,7 @@ def train(model, train_loader, val_loader, args, loggers, run_dir, save_dir):
 
 
 # ------------- 8. 评估代码 -------------
-def evaluate_model(args, model, data_loader, model_path=None, num_classes=5, compute_loss=False):
+def evaluate_model(args, model, data_loader, model_path=None, num_classes=4, compute_loss=False):
     if model_path:
         model.load_state_dict(torch.load(model_path, map_location=device))
 
@@ -294,6 +296,8 @@ def evaluate_model(args, model, data_loader, model_path=None, num_classes=5, com
         for images, masks in tqdm(data_loader, desc="Evaluating"):
             images, masks = images.to(device), masks.to(device)
             outputs = model(images)
+            one = torch.ones((outputs.shape[0],1,224,224)).cuda()
+            outputs = torch.cat([outputs,(100 * one * (masks==4).unsqueeze(dim = 1))],dim = 1)
 
             if compute_loss:
                 loss = criterion(outputs, masks)
@@ -384,7 +388,7 @@ if __name__ == '__main__':
     parser.add_argument("--num_workers", type=int, default=10, help="Number of training workers")
     parser.add_argument("--learning_rate", type=float, default=0.005, help="Learning rate")
     parser.add_argument("--num_epochs", type=int, default=50, help="Number of training epochs")
-    parser.add_argument("--num_classes", type=int, default=5, help="Number of segmentation classes")
+    parser.add_argument("--num_classes", type=int, default=4, help="Number of segmentation classes")
     parser.add_argument("--weight_decay", type=float, default=1e-4, help="Weight decay for optimizer")
     parser.add_argument("--momentum", type=float, default=0.9, help="Momentum for optimizer")
     parser.add_argument("--log_dir", type=str, default="./runs", help="Directory to save logs")
