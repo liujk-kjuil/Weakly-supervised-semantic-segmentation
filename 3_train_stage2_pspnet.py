@@ -4,7 +4,7 @@ import time
 from logging.handlers import RotatingFileHandler
 from contextlib import contextmanager
 import math
-
+import random
 import cv2
 import numpy as np
 import segmentation_models_pytorch as smp
@@ -13,6 +13,7 @@ import torch.nn.functional as F
 import torch.nn as nn
 import torchvision.transforms as transforms
 from PIL import Image
+from PIL import ImageFilter
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
@@ -117,9 +118,11 @@ class MultiLevelPathologyDataset(Dataset):
 # ------------- 3. 模型定义 -------------
 def load_pspnet(num_classes):
     model = smp.PSPNet(
-        encoder_name="resnet101",
+        encoder_name="timm-resnest101e",
+        # encoder_name="resnet101",
         # encoder_name="resnet152",
         encoder_weights="imagenet",
+        in_channels=3,
         classes=num_classes,
         activation=None
     )
@@ -139,28 +142,24 @@ def compute_metrics(confusion_matrix):
     diag = np.diag(confusion_matrix)
     acc = np.sum(diag) / np.sum(confusion_matrix)
     ious = diag / (np.sum(confusion_matrix, axis=1) + np.sum(confusion_matrix, axis=0) - diag)
-    ious = ious[0:4]
     miou = np.nanmean(ious)
-    freq = np.sum(confusion_matrix, axis=1)[0:4] / np.sum(confusion_matrix[0:4])
+    freq = np.sum(confusion_matrix, axis=1) / np.sum(confusion_matrix)
     fwiou = (freq[freq > 0] * ious[freq > 0]).sum()
     return miou, fwiou, acc, ious
 
 
 # ------------- 5. 学习率调度 -------------
-def poly_lr_scheduler(optimizer, init_lr, epoch, max_epochs, power=0.9):
+def poly_lr_scheduler(optimizer, lr, epoch_iter, max_iters, power=0.9):
     """Poly 学习率衰减策略"""
-    new_lr = init_lr * (1 - epoch / max_epochs) ** power
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = new_lr
+    new_lr = lr * pow((1 - epoch_iter / max_iters), power)
+    if len(optimizer.param_groups) == 1:
+        optimizer.param_groups[0]['lr'] = new_lr
+    else:
+        # enlarge the lr at the head
+        optimizer.param_groups[0]['lr'] = new_lr
+        for i in range(1, len(optimizer.param_groups)):
+            optimizer.param_groups[i]['lr'] = new_lr * 10
     return new_lr
-
-
-def cosine_lr_scheduler(optimizer, init_lr, epoch, max_epochs, eta_min=0.0):
-    """余弦退火学习率衰减策略"""
-    lr = eta_min + (init_lr - eta_min) * (1 + math.cos(math.pi * epoch / max_epochs)) / 2
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
-    return lr
 
 
 # ------------- 6. 损失函数 -------------
@@ -199,51 +198,122 @@ class ONSSLoss(nn.Module):
         return total_loss
 
 
+class STLoss(nn.Module):
+    def __init__(self, w_d=30, w_a=60):
+        super(STLoss, self).__init__()
+        self.w_d = w_d
+        self.w_a = w_a
+
+    def forward(self, f_s, f_t):
+        student = f_s.view(f_s.shape[0], -1)
+        teacher = f_t.view(f_t.shape[0], -1)
+        # distance loss
+        with torch.no_grad():
+            t_d = self.pdist(teacher, squared=False)
+            mean_td = t_d[t_d > 0].mean()
+            t_d = t_d / mean_td
+        d = self.pdist(student, squared=False)
+        mean_d = d[d > 0].mean()
+        d = d / mean_d
+        loss_d = F.smooth_l1_loss(d, t_d)
+        # angle loss
+        with torch.no_grad():
+            td = (teacher.unsqueeze(0) - teacher.unsqueeze(1))
+            norm_td = F.normalize(td, p=2, dim=2)
+            t_angle = torch.bmm(norm_td, norm_td.transpose(1, 2)).view(-1)
+        sd = (student.unsqueeze(0) - student.unsqueeze(1))
+        norm_sd = F.normalize(sd, p=2, dim=2)
+        s_angle = torch.bmm(norm_sd, norm_sd.transpose(1, 2)).view(-1)
+        loss_a = F.smooth_l1_loss(s_angle, t_angle)
+        loss = self.w_d * loss_d + self.w_a * loss_a
+        return loss
+
+    @staticmethod
+    def pdist(e, squared=False, eps=1e-12):
+        e_square = e.pow(2).sum(dim=1)
+        prod = e @ e.t()
+        res = (e_square.unsqueeze(1) + e_square.unsqueeze(0) - 2 * prod).clamp(min=eps)
+        if not squared:
+            res = res.sqrt()
+        res = res.clone()
+        res[range(len(e)), range(len(e))] = 0
+        return res
+
+
+def SWV(outputs_main, outputs_aux1, outputs_aux2, mask):
+    n = outputs_main.shape[0]
+    loss_main = F.cross_entropy(
+        outputs_main, mask.long(), reduction='none').view(n, -1)
+    hard_aux1 = torch.argmax(outputs_aux1, dim=1).view(n, -1)
+    hard_aux2 = torch.argmax(outputs_aux2, dim=1).view(n, -1)
+    loss_select = 0
+    for i in range(n):
+        aux1_sample = hard_aux1[i]
+        aux2_sample = hard_aux2[i]
+        loss_sample = loss_main[i]
+        agree_aux = (aux1_sample == aux2_sample)
+        disagree_aux = (aux1_sample != aux2_sample)
+        loss_select += 2*torch.sum(loss_sample[agree_aux]) + (1/2)*torch.sum(loss_sample[disagree_aux])
+
+    return loss_select / (n*loss_main.shape[1])
+
+
 # ------------- 7. 训练代码 -------------
 def train(model, train_loader, val_loader, args, loggers, run_dir, save_dir):
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.learning_rate, momentum=args.momentum,weight_decay=args.weight_decay)
+    optimizer = torch.optim.SGD(params=model.parameters(), lr=args.learning_rate, momentum=args.momentum,weight_decay=args.weight_decay)
+    
     criterion_1 = nn.CrossEntropyLoss()
     criterion_2 = ONSSLoss()
-    # if args.onss:
-    #     criterion = ONSSLoss()
-    # else:
-    #     criterion = nn.CrossEntropyLoss()
+    
     best_miou = 0.0
+    num_iter = len(train_loader)
+    current_lr = args.learning_rate
 
     with tensorboard_writer(run_dir) as writer:
         for epoch in range(args.num_epochs):
             model.train()
             running_loss = 0.0
 
-            if args.lr_scheduler == "poly":
-                current_lr = poly_lr_scheduler(
-                    optimizer, args.learning_rate, epoch, args.num_epochs
-                )
-            elif args.lr_scheduler == "cosine":
-                current_lr = cosine_lr_scheduler(
-                    optimizer, args.learning_rate, epoch, args.num_epochs, args.eta_min
-                )
-
-            for images, masks_list in tqdm(train_loader, desc=f"Epoch {epoch + 1}/{args.num_epochs} (LR: {current_lr:.6f})"):
-                images = images.to(device)
+            
+            for i, (image, masks_list) in enumerate(
+                tqdm(train_loader, desc=f"Epoch {epoch + 1}/{args.num_epochs} (LR: {current_lr:.8f})")
+            ):
+                image = image.to(device)
                 masks_list = [m.to(device) for m in masks_list]
                 loss_list = []
+                current_lr = poly_lr_scheduler(optimizer, args.learning_rate, epoch * num_iter + i, num_iter * args.num_epochs)
                 optimizer.zero_grad()
-                outputs = model(images)
-                one = torch.ones((outputs.shape[0],1,224,224)).cuda()
-                outputs = torch.cat([outputs,(100 * one * (masks_list[0]==4).unsqueeze(dim = 1))],dim = 1)
-                # for masks in masks_list:
-                #     loss_list.append(criterion(outputs, masks))
-                if args.onss:
-                    loss_list.append(criterion_2(outputs, masks_list[0]))
-                else:
-                    loss_list.append(criterion_1(outputs, masks_list[0]))
                 
-                loss_list.append(criterion_1(outputs, masks_list[1]))
-                loss_list.append(criterion_1(outputs, masks_list[2]))
+                # outputs = model(image)
+                # one = torch.ones((outputs.shape[0],1,224,224)).cuda()
+                # outputs = torch.cat([outputs,(100 * one * (masks_list[0]==4).unsqueeze(dim = 1))],dim = 1)
+                # if args.onss:
+                #     loss_list.append(criterion_2(outputs, masks_list[0]))
+                # else:
+                #     loss_list.append(criterion_1(outputs, masks_list[0]))
+                
+                # loss_list.append(criterion_1(outputs, masks_list[1]))
+                # loss_list.append(criterion_1(outputs, masks_list[2]))
 
-                loss = loss_list[0] * 0.6 + loss_list[1] * 0.2 + loss_list[2] * 0.2
+                # loss = loss_list[0] * 0.6 + loss_list[1] * 0.2 + loss_list[2] * 0.2
                 # loss = loss_list[0]
+                
+                output = model(image)
+                output2 = model(image)
+                output3 = model(image)
+                target = masks_list[0]
+                one = torch.ones((output.shape[0],1,224,224)).cuda()
+                one2 = torch.ones((output2.shape[0],1,224,224)).cuda()
+                one3 = torch.ones((output3.shape[0],1,224,224)).cuda()
+                output = torch.cat([output,(100 * one * (target==4).unsqueeze(dim = 1))],dim = 1)
+                output2 = torch.cat([output2,(100 * one2 * (target==4).unsqueeze(dim = 1))],dim = 1)
+                output3 = torch.cat([output3,(100 * one3 * (target==4).unsqueeze(dim = 1))],dim = 1)
+                loss_v1 = SWV(output, output2, output3, target)
+                loss_st1 = STLoss()(output, output2)
+                loss_st2 = STLoss()(output, output3)
+                loss_st = (loss_st1 + loss_st2) / 2
+                loss = 0.8*loss_v1 + 0.2*loss_st
+                
                 loss.backward()
                 optimizer.step()
                 running_loss += loss.item()
@@ -296,8 +366,6 @@ def evaluate_model(args, model, data_loader, model_path=None, num_classes=4, com
         for images, masks in tqdm(data_loader, desc="Evaluating"):
             images, masks = images.to(device), masks.to(device)
             outputs = model(images)
-            one = torch.ones((outputs.shape[0],1,224,224)).cuda()
-            outputs = torch.cat([outputs,(100 * one * (masks==4).unsqueeze(dim = 1))],dim = 1)
 
             if compute_loss:
                 loss = criterion(outputs, masks)
@@ -328,25 +396,33 @@ def main(args):
     transform = transforms.Compose([
         transforms.ToPILImage(),  # 需要转化为 PIL 图像才能应用其他增强
         transforms.RandomHorizontalFlip(),  # 随机水平翻转
-        transforms.RandomRotation(30),  # 随机旋转，最大旋转角度30度
-        transforms.RandomResizedCrop(224, scale=(0.8, 1.0)),  # 随机裁剪，比例在0.8到1.0之间
-        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),  # 随机颜色变化
-        transforms.RandomAffine(30, shear=10),  # 随机仿射变换
+        # transforms.RandomRotation(30),  # 随机旋转，最大旋转角度30度
+        # transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),  # 随机颜色变化
+        # transforms.RandomAffine(30, shear=10),  # 随机仿射变换
+        # transforms.GaussianBlur(kernel_size=3),
+        transforms.Lambda(lambda img: 
+            img.filter(ImageFilter.GaussianBlur(radius=random.random()))
+        ),
         transforms.ToTensor(),  # 转换为 Tensor
-        transforms.Normalize(mean=[0., 0., 0.], std=[1., 1., 1.])  # 归一化
+        transforms.Normalize(mean=[0., 0., 0.], std=[1., 1., 1.]) # 归一化
     ])
 
     transform_val = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize(mean=[0., 0., 0.], std=[1., 1., 1.])
     ])
+    
+    if args.Grad_CAM_pp:
+        mask_path = "datasets/LUAD-HistoSeg/train_PM_pp"
+    else:
+        mask_path = "datasets/LUAD-HistoSeg/train_PM"
 
     train_dataset = MultiLevelPathologyDataset(
         image_dir="datasets/LUAD-HistoSeg/train",
         mask_dirs=[
-            "datasets/LUAD-HistoSeg/train_PM/PM_bn7",
-            "datasets/LUAD-HistoSeg/train_PM/PM_b4_5",
-            "datasets/LUAD-HistoSeg/train_PM/PM_b5_2"
+            os.path.join(mask_path, "PM_bn7"),
+            os.path.join(mask_path, "PM_b5_2"),
+            os.path.join(mask_path, "PM_b4_5")
         ],
         transform=transform
     )
@@ -384,17 +460,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="PSPNet Pathology Segmentation Training")
     parser.add_argument("--onss", type=bool, default=False, help="Whether to use onss")
     parser.add_argument("--Grad_CAM_pp", type=bool, default=False, help="Whether to use Grad CAM++")
-    parser.add_argument("--batch_size", type=int, default=16, help="Batch size for training")
+    parser.add_argument("--batch_size", type=int, default=20, help="Batch size for training")
     parser.add_argument("--num_workers", type=int, default=10, help="Number of training workers")
     parser.add_argument("--learning_rate", type=float, default=0.005, help="Learning rate")
-    parser.add_argument("--num_epochs", type=int, default=50, help="Number of training epochs")
+    parser.add_argument("--num_epochs", type=int, default=10, help="Number of training epochs")
     parser.add_argument("--num_classes", type=int, default=4, help="Number of segmentation classes")
-    parser.add_argument("--weight_decay", type=float, default=1e-4, help="Weight decay for optimizer")
+    parser.add_argument("--weight_decay", type=float, default=5e-4, help="Weight decay for optimizer")
     parser.add_argument("--momentum", type=float, default=0.9, help="Momentum for optimizer")
     parser.add_argument("--log_dir", type=str, default="./runs", help="Directory to save logs")
     parser.add_argument("--checkpoint", type=str, default="checkpoints/stage2", help="Directory to save checkpoints")
-    parser.add_argument("--lr_scheduler", type=str, default="cosine", choices=["poly", "cosine"], help="学习率衰减策略")
-    parser.add_argument("--eta_min", type=float, default=0.0001, help="余弦退火策略的最小学习率")
 
     args = parser.parse_args()
+    torch.cuda.empty_cache()
     main(args)

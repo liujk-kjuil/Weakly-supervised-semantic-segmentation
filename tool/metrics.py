@@ -11,31 +11,38 @@ class Evaluator(object):
         return Acc
 
     def Pixel_Accuracy_Class(self):
-        Acc = np.diag(self.confusion_matrix)[0:4] / self.confusion_matrix.sum(axis=1)[0:4]
+        Acc = np.diag(self.confusion_matrix) / self.confusion_matrix.sum(axis=1)
         Acc = np.nanmean(Acc)
         return Acc
 
     def Mean_Intersection_over_Union(self):
-        ious = np.diag(self.confusion_matrix)[0:4] / (
+        ious = np.diag(self.confusion_matrix) / (
                     np.sum(self.confusion_matrix, axis=1) + np.sum(self.confusion_matrix, axis=0) -
-                    np.diag(self.confusion_matrix))[0:4]
+                    np.diag(self.confusion_matrix))
         MIoU = np.nanmean(ious)
         return MIoU
 
     def Intersection_over_Union(self):
-        ious = np.diag(self.confusion_matrix)[0:4] / (
+        ious = np.diag(self.confusion_matrix) / (
                     np.sum(self.confusion_matrix, axis=1) + np.sum(self.confusion_matrix, axis=0) -
-                    np.diag(self.confusion_matrix))[0:4]
+                    np.diag(self.confusion_matrix))
         return ious
 
     def Frequency_Weighted_Intersection_over_Union(self):
-        freq = np.sum(self.confusion_matrix, axis=1)[0:4] / np.sum(self.confusion_matrix)
-        iu = np.diag(self.confusion_matrix)[0:4] / (
+        freq = np.sum(self.confusion_matrix, axis=1) / np.sum(self.confusion_matrix)
+        iu = np.diag(self.confusion_matrix) / (
                     np.sum(self.confusion_matrix, axis=1) + np.sum(self.confusion_matrix, axis=0) -
-                    np.diag(self.confusion_matrix))[0:4]
+                    np.diag(self.confusion_matrix))
 
         FWIoU = (freq[freq > 0] * iu[freq > 0]).sum()
         return FWIoU
+
+    def Dice_Similarity_Coefficient(self):
+        dsc = 2 * np.diag(self.confusion_matrix) / (
+            np.sum(self.confusion_matrix, axis=1) + np.sum(self.confusion_matrix, axis=0)
+        )
+        dsc_mean = np.nanmean(dsc)
+        return dsc_mean
 
     def _generate_matrix(self, gt_image, pre_image):
         mask = (gt_image >= 0) & (gt_image<self.num_class)
@@ -50,7 +57,6 @@ class Evaluator(object):
 
     def reset(self):
         self.confusion_matrix = np.zeros((self.num_class,) * 2)
-
 
 
 class Evaluator_BCSS(object):
