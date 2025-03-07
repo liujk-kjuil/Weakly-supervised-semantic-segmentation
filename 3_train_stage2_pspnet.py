@@ -18,6 +18,8 @@ from torch.utils.data import DataLoader, Dataset
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 import argparse
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -80,8 +82,10 @@ class ValPathologyDataset(Dataset):
         mask = np.array(mask).astype(np.float32)
 
         if self.transform:
-            image = self.transform(image)
-        mask = torch.tensor(mask, dtype=torch.long)
+            augmented = self.transform(image=image, mask=mask)
+            image = augmented['image']
+            mask = augmented['mask']
+
         return image, mask
 
 
@@ -108,11 +112,38 @@ class TrainPathologyDataset(Dataset):
             mask_path = os.path.join(mask_dir, filenames[idx])
             mask = Image.open(mask_path)
             mask = np.array(mask).astype(np.float32)
-            masks.append(torch.tensor(mask, dtype=torch.long))
+            masks.append(mask)
 
         if self.transform:
-            image = self.transform(image)
+            transform_input = {'image': image}
+            transform_input.update({f'mask{i}': mask for i, mask in enumerate(masks)})
+
+            augmented = self.transform(**transform_input)
+
+            image = augmented['image']
+            masks = [augmented[f'mask{i}'] for i in range(len(masks))]
+
         return image, masks
+
+
+def get_train_transform(num_masks=3):  # 假设有 3 个 mask，数量可调
+    additional_targets = {f'mask{i}': 'mask' for i in range(num_masks)}
+
+    return A.Compose([
+        A.HorizontalFlip(p=0.5),
+        A.Rotate(limit=30, p=0.5),
+        A.GaussianBlur(p=0.3),
+        A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1, p=0.5),
+        A.Normalize(mean=[0., 0., 0.], std=[1., 1., 1.]),
+        ToTensorV2()
+    ], additional_targets=additional_targets)
+
+
+def get_val_transform():
+    return A.Compose([
+        A.Normalize(mean=[0., 0., 0.], std=[1., 1., 1.]),
+        ToTensorV2()
+    ])
 
 
 # ------------- 3. 模型定义 -------------
@@ -152,11 +183,8 @@ def compute_metrics(confusion_matrix):
 def poly_lr_scheduler(optimizer, lr, epoch_iter, max_iters, power=0.9):
     """Poly 学习率衰减策略"""
     new_lr = lr * pow((1 - epoch_iter / max_iters), power)
-    if len(optimizer.param_groups) == 1:
-        optimizer.param_groups[0]['lr'] = new_lr
-    else:
-        # enlarge the lr at the head
-        optimizer.param_groups[0]['lr'] = new_lr
+    optimizer.param_groups[0]['lr'] = new_lr
+    if len(optimizer.param_groups) != 1:
         for i in range(1, len(optimizer.param_groups)):
             optimizer.param_groups[i]['lr'] = new_lr * 10
     return new_lr
@@ -164,7 +192,7 @@ def poly_lr_scheduler(optimizer, lr, epoch_iter, max_iters, power=0.9):
 
 # ------------- 6. 损失函数 -------------
 class ONSSLoss(nn.Module):
-    def __init__(self, ignore_index : int = -100):
+    def __init__(self, ignore_index: int = -100):
         super().__init__()
         self.ignore_index = ignore_index
 
@@ -253,18 +281,19 @@ def SWV(outputs_main, outputs_aux1, outputs_aux2, mask):
         loss_sample = loss_main[i]
         agree_aux = (aux1_sample == aux2_sample)
         disagree_aux = (aux1_sample != aux2_sample)
-        loss_select += 2*torch.sum(loss_sample[agree_aux]) + (1/2)*torch.sum(loss_sample[disagree_aux])
+        loss_select += 2 * torch.sum(loss_sample[agree_aux]) + (1 / 2) * torch.sum(loss_sample[disagree_aux])
 
-    return loss_select / (n*loss_main.shape[1])
+    return loss_select / (n * loss_main.shape[1])
 
 
 # ------------- 7. 训练代码 -------------
 def train(model, train_loader, val_loader, args, loggers, run_dir, save_dir):
-    optimizer = torch.optim.SGD(params=model.parameters(), lr=args.learning_rate, momentum=args.momentum,weight_decay=args.weight_decay)
-    
+    optimizer = torch.optim.SGD(params=model.parameters(), lr=args.learning_rate, momentum=args.momentum,
+                                weight_decay=args.weight_decay)
+
     criterion_1 = nn.CrossEntropyLoss()
     criterion_2 = ONSSLoss()
-    
+
     best_miou = 0.0
     num_iter = len(train_loader)
     current_lr = args.learning_rate
@@ -274,16 +303,16 @@ def train(model, train_loader, val_loader, args, loggers, run_dir, save_dir):
             model.train()
             running_loss = 0.0
 
-            
             for i, (image, masks_list) in enumerate(
-                tqdm(train_loader, desc=f"Epoch {epoch + 1}/{args.num_epochs} (LR: {current_lr:.8f})")
+                    tqdm(train_loader, desc=f"Epoch {epoch + 1}/{args.num_epochs} (LR: {current_lr:.8f})")
             ):
                 image = image.to(device)
                 masks_list = [m.to(device) for m in masks_list]
                 loss_list = []
-                current_lr = poly_lr_scheduler(optimizer, args.learning_rate, epoch * num_iter + i, num_iter * args.num_epochs)
+                current_lr = poly_lr_scheduler(optimizer, args.learning_rate, epoch * num_iter + i,
+                                               num_iter * args.num_epochs)
                 optimizer.zero_grad()
-                
+
                 # outputs = model(image)
                 # one = torch.ones((outputs.shape[0],1,224,224)).cuda()
                 # outputs = torch.cat([outputs,(100 * one * (masks_list[0]==4).unsqueeze(dim = 1))],dim = 1)
@@ -291,29 +320,29 @@ def train(model, train_loader, val_loader, args, loggers, run_dir, save_dir):
                 #     loss_list.append(criterion_2(outputs, masks_list[0]))
                 # else:
                 #     loss_list.append(criterion_1(outputs, masks_list[0]))
-                
+
                 # loss_list.append(criterion_1(outputs, masks_list[1]))
                 # loss_list.append(criterion_1(outputs, masks_list[2]))
 
                 # loss = loss_list[0] * 0.6 + loss_list[1] * 0.2 + loss_list[2] * 0.2
                 # loss = loss_list[0]
-                
+
                 output = model(image)
                 output2 = model(image)
                 output3 = model(image)
                 target = masks_list[0]
-                one = torch.ones((output.shape[0],1,224,224)).cuda()
-                one2 = torch.ones((output2.shape[0],1,224,224)).cuda()
-                one3 = torch.ones((output3.shape[0],1,224,224)).cuda()
-                output = torch.cat([output,(100 * one * (target==4).unsqueeze(dim = 1))],dim = 1)
-                output2 = torch.cat([output2,(100 * one2 * (target==4).unsqueeze(dim = 1))],dim = 1)
-                output3 = torch.cat([output3,(100 * one3 * (target==4).unsqueeze(dim = 1))],dim = 1)
+                one = torch.ones((output.shape[0], 1, 224, 224)).cuda()
+                one2 = torch.ones((output2.shape[0], 1, 224, 224)).cuda()
+                one3 = torch.ones((output3.shape[0], 1, 224, 224)).cuda()
+                output = torch.cat([output, (100 * one * (target == 4).unsqueeze(dim=1))], dim=1)
+                output2 = torch.cat([output2, (100 * one2 * (target == 4).unsqueeze(dim=1))], dim=1)
+                output3 = torch.cat([output3, (100 * one3 * (target == 4).unsqueeze(dim=1))], dim=1)
                 loss_v1 = SWV(output, output2, output3, target)
                 loss_st1 = STLoss()(output, output2)
                 loss_st2 = STLoss()(output, output3)
                 loss_st = (loss_st1 + loss_st2) / 2
-                loss = 0.8*loss_v1 + 0.2*loss_st
-                
+                loss = 0.8 * loss_v1 + 0.2 * loss_st
+
                 loss.backward()
                 optimizer.step()
                 running_loss += loss.item()
@@ -322,7 +351,8 @@ def train(model, train_loader, val_loader, args, loggers, run_dir, save_dir):
             writer.add_scalar("Loss/Train", avg_train_loss, epoch)
             writer.add_scalar("LearningRate", current_lr, epoch)
 
-            val_loss, miou, fwiou, acc, ious = evaluate_model(args, model, val_loader, num_classes=args.num_classes, compute_loss=True)
+            val_loss, miou, fwiou, acc, ious = evaluate_model(args, model, val_loader, num_classes=args.num_classes,
+                                                              compute_loss=True)
             writer.add_scalar("Loss/Val", val_loss, epoch)
             writer.add_scalar("Metric/MIoU", miou, epoch)
             writer.add_scalar("Metric/FWIoU", fwiou, epoch)
@@ -393,25 +423,9 @@ def main(args):
 
     loggers = setup_logging(run_dir)
 
-    transform = transforms.Compose([
-        transforms.ToPILImage(),  # 需要转化为 PIL 图像才能应用其他增强
-        transforms.RandomHorizontalFlip(),  # 随机水平翻转
-        # transforms.RandomRotation(30),  # 随机旋转，最大旋转角度30度
-        # transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),  # 随机颜色变化
-        # transforms.RandomAffine(30, shear=10),  # 随机仿射变换
-        # transforms.GaussianBlur(kernel_size=3),
-        transforms.Lambda(lambda img: 
-            img.filter(ImageFilter.GaussianBlur(radius=random.random()))
-        ),
-        transforms.ToTensor(),  # 转换为 Tensor
-        transforms.Normalize(mean=[0., 0., 0.], std=[1., 1., 1.]) # 归一化
-    ])
+    train_transform = get_train_transform()
+    val_transform = get_val_transform()
 
-    transform_val = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0., 0., 0.], std=[1., 1., 1.])
-    ])
-    
     if args.Grad_CAM_pp:
         mask_path = "datasets/LUAD-HistoSeg/train_PM_pp"
     else:
@@ -424,11 +438,12 @@ def main(args):
             os.path.join(mask_path, "PM_b5_2"),
             os.path.join(mask_path, "PM_b4_5")
         ],
-        transform=transform
+        transform=train_transform
     )
-    val_dataset = ValPathologyDataset("datasets/LUAD-HistoSeg/val/img", "datasets/LUAD-HistoSeg/val/mask", transform_val)
+    val_dataset = ValPathologyDataset("datasets/LUAD-HistoSeg/val/img", "datasets/LUAD-HistoSeg/val/mask",
+                                      val_transform)
     test_dataset = ValPathologyDataset("datasets/LUAD-HistoSeg/test/img", "datasets/LUAD-HistoSeg/test/mask",
-                                    transform_val)
+                                       val_transform)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
