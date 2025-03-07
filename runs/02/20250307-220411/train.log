@@ -1,0 +1,51 @@
+2025-03-07 22:04:17,943 - INFO - 训练开始
+2025-03-07 22:04:17,943 - INFO - 训练参数: {'onss': False, 'Grad_CAM_pp': False, 'batch_size': 20, 'num_workers': 10, 'learning_rate': 0.005, 'num_epochs': 10, 'num_classes': 4, 'weight_decay': 0.0005, 'momentum': 0.9, 'log_dir': './runs/02', 'checkpoint': 'checkpoints/stage2'}
+2025-03-07 22:05:24,789 - INFO - Epoch 1: Train Loss = 0.3698, Val Loss = 0.3757, 
+MIoU = 0.7206, FWIoU = 0.7416, Acc = 0.8518, 
+TE IoU = 0.7357, NEC IoU = 0.6360, LYM IoU = 0.7611, TAS IoU = 0.7494
+2025-03-07 22:05:25,112 - INFO - 最优模型已保存
+2025-03-07 22:05:25,420 - INFO - 最新模型已保存
+2025-03-07 22:06:31,843 - INFO - Epoch 2: Train Loss = 0.2869, Val Loss = 0.3392, 
+MIoU = 0.7422, FWIoU = 0.7567, Acc = 0.8615, 
+TE IoU = 0.7573, NEC IoU = 0.6953, LYM IoU = 0.7576, TAS IoU = 0.7584
+2025-03-07 22:06:32,228 - INFO - 最优模型已保存
+2025-03-07 22:06:32,578 - INFO - 最新模型已保存
+2025-03-07 22:07:40,011 - INFO - Epoch 3: Train Loss = 0.2615, Val Loss = 0.3833, 
+MIoU = 0.7306, FWIoU = 0.7341, Acc = 0.8472, 
+TE IoU = 0.7195, NEC IoU = 0.7021, LYM IoU = 0.7532, TAS IoU = 0.7476
+2025-03-07 22:07:40,380 - INFO - 最新模型已保存
+2025-03-07 22:08:47,315 - INFO - Epoch 4: Train Loss = 0.2530, Val Loss = 0.3502, 
+MIoU = 0.7413, FWIoU = 0.7507, Acc = 0.8578, 
+TE IoU = 0.7442, NEC IoU = 0.7107, LYM IoU = 0.7521, TAS IoU = 0.7584
+2025-03-07 22:08:47,689 - INFO - 最新模型已保存
+2025-03-07 22:09:55,009 - INFO - Epoch 5: Train Loss = 0.2406, Val Loss = 0.3381, 
+MIoU = 0.7466, FWIoU = 0.7590, Acc = 0.8629, 
+TE IoU = 0.7603, NEC IoU = 0.7210, LYM IoU = 0.7443, TAS IoU = 0.7608
+2025-03-07 22:09:55,379 - INFO - 最优模型已保存
+2025-03-07 22:09:55,731 - INFO - 最新模型已保存
+2025-03-07 22:11:06,898 - INFO - Epoch 6: Train Loss = 0.2359, Val Loss = 0.3636, 
+MIoU = 0.7406, FWIoU = 0.7441, Acc = 0.8535, 
+TE IoU = 0.7345, NEC IoU = 0.7236, LYM IoU = 0.7509, TAS IoU = 0.7535
+2025-03-07 22:11:07,306 - INFO - 最新模型已保存
+2025-03-07 22:12:18,448 - INFO - Epoch 7: Train Loss = 0.2311, Val Loss = 0.3561, 
+MIoU = 0.7427, FWIoU = 0.7458, Acc = 0.8547, 
+TE IoU = 0.7348, NEC IoU = 0.7214, LYM IoU = 0.7587, TAS IoU = 0.7561
+2025-03-07 22:12:18,821 - INFO - 最新模型已保存
+2025-03-07 22:13:30,014 - INFO - Epoch 8: Train Loss = 0.2260, Val Loss = 0.3498, 
+MIoU = 0.7408, FWIoU = 0.7537, Acc = 0.8595, 
+TE IoU = 0.7528, NEC IoU = 0.7220, LYM IoU = 0.7301, TAS IoU = 0.7584
+2025-03-07 22:13:30,402 - INFO - 最新模型已保存
+2025-03-07 22:14:42,060 - INFO - Epoch 9: Train Loss = 0.2229, Val Loss = 0.3528, 
+MIoU = 0.7476, FWIoU = 0.7524, Acc = 0.8589, 
+TE IoU = 0.7461, NEC IoU = 0.7349, LYM IoU = 0.7498, TAS IoU = 0.7596
+2025-03-07 22:14:42,458 - INFO - 最优模型已保存
+2025-03-07 22:14:42,821 - INFO - 最新模型已保存
+2025-03-07 22:15:54,177 - INFO - Epoch 10: Train Loss = 0.2175, Val Loss = 0.3503, 
+MIoU = 0.7482, FWIoU = 0.7523, Acc = 0.8587, 
+TE IoU = 0.7465, NEC IoU = 0.7444, LYM IoU = 0.7425, TAS IoU = 0.7593
+2025-03-07 22:15:54,546 - INFO - 最优模型已保存
+2025-03-07 22:15:54,888 - INFO - 最新模型已保存
+2025-03-07 22:15:59,660 - INFO - 最优模型测试结果: MIoU = 0.7624, FWIoU = 0.7535, Acc = 0.8585, TE IoU = 0.7785, NEC IoU = 0.8183, LYM IoU = 0.7335, TAS IoU = 0.7192
+2025-03-07 22:16:04,065 - INFO - 最新模型测试结果: MIoU = 0.7624, FWIoU = 0.7535, Acc = 0.8585, TE IoU = 0.7785, NEC IoU = 0.8183, LYM IoU = 0.7335, TAS IoU = 0.7192
+
+Multy-layer 

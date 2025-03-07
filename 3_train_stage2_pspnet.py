@@ -82,9 +82,9 @@ class ValPathologyDataset(Dataset):
         mask = np.array(mask).astype(np.float32)
 
         if self.transform:
-            augmented = self.transform(image=image, mask=mask)
-            image = augmented['image']
-            mask = augmented['mask']
+            image = self.transform(image)
+
+        mask = torch.tensor(mask, dtype=torch.long)
 
         return image, mask
 
@@ -122,6 +122,8 @@ class TrainPathologyDataset(Dataset):
 
             image = augmented['image']
             masks = [augmented[f'mask{i}'] for i in range(len(masks))]
+            
+        masks = [mask.long() for mask in masks]
 
         return image, masks
 
@@ -140,9 +142,9 @@ def get_train_transform(num_masks=3):  # 假设有 3 个 mask，数量可调
 
 
 def get_val_transform():
-    return A.Compose([
-        A.Normalize(mean=[0., 0., 0.], std=[1., 1., 1.]),
-        ToTensorV2()
+    return transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0., 0., 0.], std=[1., 1., 1.])
     ])
 
 
@@ -313,35 +315,35 @@ def train(model, train_loader, val_loader, args, loggers, run_dir, save_dir):
                                                num_iter * args.num_epochs)
                 optimizer.zero_grad()
 
-                # outputs = model(image)
-                # one = torch.ones((outputs.shape[0],1,224,224)).cuda()
-                # outputs = torch.cat([outputs,(100 * one * (masks_list[0]==4).unsqueeze(dim = 1))],dim = 1)
-                # if args.onss:
-                #     loss_list.append(criterion_2(outputs, masks_list[0]))
-                # else:
-                #     loss_list.append(criterion_1(outputs, masks_list[0]))
+                outputs = model(image)
+                one = torch.ones((outputs.shape[0],1,224,224)).cuda()
+                outputs = torch.cat([outputs,(100 * one * (masks_list[0]==4).unsqueeze(dim = 1))],dim = 1)
+                if args.onss:
+                    loss_list.append(criterion_2(outputs, masks_list[0]))
+                else:
+                    loss_list.append(criterion_1(outputs, masks_list[0]))
 
                 # loss_list.append(criterion_1(outputs, masks_list[1]))
                 # loss_list.append(criterion_1(outputs, masks_list[2]))
 
                 # loss = loss_list[0] * 0.6 + loss_list[1] * 0.2 + loss_list[2] * 0.2
-                # loss = loss_list[0]
+                loss = loss_list[0]
 
-                output = model(image)
-                output2 = model(image)
-                output3 = model(image)
-                target = masks_list[0]
-                one = torch.ones((output.shape[0], 1, 224, 224)).cuda()
-                one2 = torch.ones((output2.shape[0], 1, 224, 224)).cuda()
-                one3 = torch.ones((output3.shape[0], 1, 224, 224)).cuda()
-                output = torch.cat([output, (100 * one * (target == 4).unsqueeze(dim=1))], dim=1)
-                output2 = torch.cat([output2, (100 * one2 * (target == 4).unsqueeze(dim=1))], dim=1)
-                output3 = torch.cat([output3, (100 * one3 * (target == 4).unsqueeze(dim=1))], dim=1)
-                loss_v1 = SWV(output, output2, output3, target)
-                loss_st1 = STLoss()(output, output2)
-                loss_st2 = STLoss()(output, output3)
-                loss_st = (loss_st1 + loss_st2) / 2
-                loss = 0.8 * loss_v1 + 0.2 * loss_st
+                # output = model(image)
+                # output2 = model(image)
+                # output3 = model(image)
+                # target = masks_list[0]
+                # one = torch.ones((output.shape[0], 1, 224, 224)).cuda()
+                # one2 = torch.ones((output2.shape[0], 1, 224, 224)).cuda()
+                # one3 = torch.ones((output3.shape[0], 1, 224, 224)).cuda()
+                # output = torch.cat([output, (100 * one * (target == 4).unsqueeze(dim=1))], dim=1)
+                # output2 = torch.cat([output2, (100 * one2 * (target == 4).unsqueeze(dim=1))], dim=1)
+                # output3 = torch.cat([output3, (100 * one3 * (target == 4).unsqueeze(dim=1))], dim=1)
+                # loss_v1 = SWV(output, output2, output3, target)
+                # loss_st1 = STLoss()(output, output2)
+                # loss_st2 = STLoss()(output, output3)
+                # loss_st = (loss_st1 + loss_st2) / 2
+                # loss = 0.8 * loss_v1 + 0.2 * loss_st
 
                 loss.backward()
                 optimizer.step()
@@ -482,7 +484,7 @@ if __name__ == '__main__':
     parser.add_argument("--num_classes", type=int, default=4, help="Number of segmentation classes")
     parser.add_argument("--weight_decay", type=float, default=5e-4, help="Weight decay for optimizer")
     parser.add_argument("--momentum", type=float, default=0.9, help="Momentum for optimizer")
-    parser.add_argument("--log_dir", type=str, default="./runs", help="Directory to save logs")
+    parser.add_argument("--log_dir", type=str, default="./runs/02", help="Directory to save logs")
     parser.add_argument("--checkpoint", type=str, default="checkpoints/stage2", help="Directory to save checkpoints")
 
     args = parser.parse_args()
