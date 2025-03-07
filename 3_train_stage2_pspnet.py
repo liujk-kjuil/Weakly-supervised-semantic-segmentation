@@ -59,7 +59,7 @@ def tensorboard_writer(log_dir):
 
 
 # ------------- 2. 数据集定义 -------------
-class PathologyDataset(Dataset):
+class ValPathologyDataset(Dataset):
     def __init__(self, image_dir, mask_dir, transform=None):
         self.image_dir = image_dir
         self.mask_dir = mask_dir
@@ -85,7 +85,7 @@ class PathologyDataset(Dataset):
         return image, mask
 
 
-class MultiLevelPathologyDataset(Dataset):
+class TrainPathologyDataset(Dataset):
     def __init__(self, image_dir, mask_dirs, transform=None):
         self.image_dir = image_dir
         self.mask_dirs = mask_dirs
@@ -417,7 +417,7 @@ def main(args):
     else:
         mask_path = "datasets/LUAD-HistoSeg/train_PM"
 
-    train_dataset = MultiLevelPathologyDataset(
+    train_dataset = TrainPathologyDataset(
         image_dir="datasets/LUAD-HistoSeg/train",
         mask_dirs=[
             os.path.join(mask_path, "PM_bn7"),
@@ -426,8 +426,8 @@ def main(args):
         ],
         transform=transform
     )
-    val_dataset = PathologyDataset("datasets/LUAD-HistoSeg/val/img", "datasets/LUAD-HistoSeg/val/mask", transform_val)
-    test_dataset = PathologyDataset("datasets/LUAD-HistoSeg/test/img", "datasets/LUAD-HistoSeg/test/mask",
+    val_dataset = ValPathologyDataset("datasets/LUAD-HistoSeg/val/img", "datasets/LUAD-HistoSeg/val/mask", transform_val)
+    test_dataset = ValPathologyDataset("datasets/LUAD-HistoSeg/test/img", "datasets/LUAD-HistoSeg/test/mask",
                                     transform_val)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
