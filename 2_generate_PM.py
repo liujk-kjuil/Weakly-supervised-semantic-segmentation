@@ -10,10 +10,10 @@ from tool.infer_fun import create_pseudo_mask
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--weights", default='checkpoints/stage1_checkpoint_trained_on_luad.pth', type=str)
+    parser.add_argument("--weights", default='checkpoints/stage1_checkpoint_trained_on_bcss.pth', type=str)
     parser.add_argument("--network", default="network.resnet38_cls", type=str)
-    parser.add_argument("--dataroot", default="datasets/LUAD-HistoSeg/", type=str)
-    parser.add_argument("--dataset", default="luad", type=str)
+    parser.add_argument("--dataroot", default="datasets/BCSS-WSSS/", type=str)
+    parser.add_argument("--dataset", default="bcss", type=str)
     parser.add_argument("--num_workers", default=8, type=int)
     parser.add_argument("--n_class", default=4, type=int)
 

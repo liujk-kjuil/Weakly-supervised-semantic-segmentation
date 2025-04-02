@@ -418,8 +418,8 @@ def evaluate_model(args, model, data_loader, model_path=None, num_classes=4, com
 # ------------- 9. 主程序 -------------
 def main(args):
     timestamp = time.strftime('%Y%m%d-%H%M%S')
-    run_dir = os.path.join(args.log_dir, timestamp)
-    save_dir = os.path.join(args.checkpoint, timestamp)
+    run_dir = os.path.join(args.log_dir, args.dataset, timestamp)
+    save_dir = os.path.join(args.checkpoint, args.dataset, timestamp)
     os.makedirs(run_dir, exist_ok=True)
     os.makedirs(save_dir, exist_ok=True)
 
@@ -429,12 +429,12 @@ def main(args):
     val_transform = get_val_transform()
 
     if args.Grad_CAM_pp:
-        mask_path = "datasets/LUAD-HistoSeg/train_PM_pp"
+        mask_path = os.path.join(args.dataroot, "train_PM_pp")
     else:
-        mask_path = "datasets/LUAD-HistoSeg/train_PM"
+        mask_path = os.path.join(args.dataroot, "train_PM")
 
     train_dataset = TrainPathologyDataset(
-        image_dir="datasets/LUAD-HistoSeg/train",
+        image_dir=os.path.join(args.dataroot, "train"),
         mask_dirs=[
             os.path.join(mask_path, "PM_bn7"),
             os.path.join(mask_path, "PM_b5_2"),
@@ -442,10 +442,16 @@ def main(args):
         ],
         transform=train_transform
     )
-    val_dataset = ValPathologyDataset("datasets/LUAD-HistoSeg/val/img", "datasets/LUAD-HistoSeg/val/mask",
-                                      val_transform)
-    test_dataset = ValPathologyDataset("datasets/LUAD-HistoSeg/test/img", "datasets/LUAD-HistoSeg/test/mask",
-                                       val_transform)
+    val_dataset = ValPathologyDataset(
+        image_dir=os.path.join(args.dataroot, "val/img"),
+        mask_dir=os.path.join(args.dataroot, "val/mask"),
+        transform=val_transform
+    )
+    test_dataset = ValPathologyDataset(
+        image_dir=os.path.join(args.dataroot, "test/img"),
+        mask_dir=os.path.join(args.dataroot, "test/mask"),
+        transform=val_transform
+    )
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
@@ -484,8 +490,10 @@ if __name__ == '__main__':
     parser.add_argument("--num_classes", type=int, default=4, help="Number of segmentation classes")
     parser.add_argument("--weight_decay", type=float, default=5e-4, help="Weight decay for optimizer")
     parser.add_argument("--momentum", type=float, default=0.9, help="Momentum for optimizer")
-    parser.add_argument("--log_dir", type=str, default="./runs/02", help="Directory to save logs")
+    parser.add_argument("--log_dir", type=str, default="./runs", help="Directory to save logs")
     parser.add_argument("--checkpoint", type=str, default="checkpoints/stage2", help="Directory to save checkpoints")
+    parser.add_argument("--dataroot", default="datasets/BCSS-WSSS", type=str)
+    parser.add_argument("--dataset", default="bcss", type=str)
 
     args = parser.parse_args()
     torch.cuda.empty_cache()
