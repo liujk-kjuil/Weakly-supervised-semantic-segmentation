@@ -315,35 +315,35 @@ def train(model, train_loader, val_loader, args, loggers, run_dir, save_dir):
                                                num_iter * args.num_epochs)
                 optimizer.zero_grad()
 
-                outputs = model(image)
-                one = torch.ones((outputs.shape[0],1,224,224)).cuda()
-                outputs = torch.cat([outputs,(100 * one * (masks_list[0]==4).unsqueeze(dim = 1))],dim = 1)
-                if args.onss:
-                    loss_list.append(criterion_2(outputs, masks_list[0]))
-                else:
-                    loss_list.append(criterion_1(outputs, masks_list[0]))
+                # outputs = model(image)
+                # one = torch.ones((outputs.shape[0],1,224,224)).cuda()
+                # outputs = torch.cat([outputs,(100 * one * (masks_list[0]==4).unsqueeze(dim = 1))],dim = 1)
+                # if args.onss:
+                    # loss_list.append(criterion_2(outputs, masks_list[0]))
+                # else:
+                    # loss_list.append(criterion_1(outputs, masks_list[0]))
 
                 # loss_list.append(criterion_1(outputs, masks_list[1]))
                 # loss_list.append(criterion_1(outputs, masks_list[2]))
 
                 # loss = loss_list[0] * 0.6 + loss_list[1] * 0.2 + loss_list[2] * 0.2
-                loss = loss_list[0]
+                # loss = loss_list[0]
 
-                # output = model(image)
-                # output2 = model(image)
-                # output3 = model(image)
-                # target = masks_list[0]
-                # one = torch.ones((output.shape[0], 1, 224, 224)).cuda()
-                # one2 = torch.ones((output2.shape[0], 1, 224, 224)).cuda()
-                # one3 = torch.ones((output3.shape[0], 1, 224, 224)).cuda()
-                # output = torch.cat([output, (100 * one * (target == 4).unsqueeze(dim=1))], dim=1)
-                # output2 = torch.cat([output2, (100 * one2 * (target == 4).unsqueeze(dim=1))], dim=1)
-                # output3 = torch.cat([output3, (100 * one3 * (target == 4).unsqueeze(dim=1))], dim=1)
-                # loss_v1 = SWV(output, output2, output3, target)
-                # loss_st1 = STLoss()(output, output2)
-                # loss_st2 = STLoss()(output, output3)
-                # loss_st = (loss_st1 + loss_st2) / 2
-                # loss = 0.8 * loss_v1 + 0.2 * loss_st
+                output = model(image)
+                output2 = model(image)
+                output3 = model(image)
+                target = masks_list[0]
+                one = torch.ones((output.shape[0], 1, 224, 224)).cuda()
+                one2 = torch.ones((output2.shape[0], 1, 224, 224)).cuda()
+                one3 = torch.ones((output3.shape[0], 1, 224, 224)).cuda()
+                output = torch.cat([output, (100 * one * (target == 4).unsqueeze(dim=1))], dim=1)
+                output2 = torch.cat([output2, (100 * one2 * (target == 4).unsqueeze(dim=1))], dim=1)
+                output3 = torch.cat([output3, (100 * one3 * (target == 4).unsqueeze(dim=1))], dim=1)
+                loss_v1 = SWV(output, output2, output3, target)
+                loss_st1 = STLoss()(output, output2)
+                loss_st2 = STLoss()(output, output3)
+                loss_st = (loss_st1 + loss_st2) / 2
+                loss = 0.8 * loss_v1 + 0.2 * loss_st
 
                 loss.backward()
                 optimizer.step()
