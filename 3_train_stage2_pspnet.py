@@ -23,6 +23,25 @@ from albumentations.pytorch import ToTensorV2
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+# 可用模型列表
+MODEL_CHOICES = {
+    'unet': smp.Unet,
+    'pspnet': smp.PSPNet,
+    'deeplabv3plus': smp.DeepLabV3Plus,
+    'fpn': smp.FPN,
+    'linknet': smp.Linknet,
+    'pan': smp.PAN
+}
+
+# 可用编码器列表
+ENCODER_CHOICES = [
+    'timm-resnest101e',
+    'resnet101',
+    'resnet152',
+    'efficientnet-b5',
+    'mobilenet_v2'
+]
+
 
 # ------------- 1. 日志管理 -------------
 def setup_logging(log_dir):
@@ -152,8 +171,18 @@ def get_val_transform():
 def load_pspnet(num_classes):
     model = smp.PSPNet(
         encoder_name="timm-resnest101e",
-        # encoder_name="resnet101",
-        # encoder_name="resnet152",
+        encoder_weights="imagenet",
+        in_channels=3,
+        classes=num_classes,
+        activation=None
+    )
+    return model.to(device)
+
+
+def create_model(model_name, encoder_name, num_classes):
+    model_class = MODEL_CHOICES[model_name.lower()]
+    model = model_class(
+        encoder_name=encoder_name,
         encoder_weights="imagenet",
         in_channels=3,
         classes=num_classes,
@@ -456,7 +485,8 @@ def main(args):
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
-    model = load_pspnet(num_classes=args.num_classes)
+    # model = load_pspnet(num_classes=args.num_classes)
+    model = create_model(args.model, args.encoder, args.num_classes)
 
     loggers.info("训练开始")
     loggers.info(f"训练参数: {vars(args)}")  # 记录所有参数
@@ -494,6 +524,8 @@ if __name__ == '__main__':
     parser.add_argument("--checkpoint", type=str, default="checkpoints/stage2", help="Directory to save checkpoints")
     parser.add_argument("--dataroot", default="datasets/BCSS-WSSS", type=str)
     parser.add_argument("--dataset", default="bcss", type=str)
+    parser.add_argument('--model', type=str, required=True, choices=list(MODEL_CHOICES.keys()), help='选择模型架构')
+    parser.add_argument('--encoder', type=str, default='timm-resnest101e', choices=ENCODER_CHOICES, help='选择编码器/主干网络')
 
     args = parser.parse_args()
     torch.cuda.empty_cache()
