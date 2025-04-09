@@ -403,10 +403,10 @@ def train(model, train_loader, val_loader, args, loggers, run_dir, save_dir):
 
             if miou > best_miou:
                 best_miou = miou
-                torch.save(model.state_dict(), os.path.join(save_dir, "best", args.model, ".pth"))
+                torch.save(model.state_dict(), os.path.join(save_dir, "best_" + args.model + ".pth"))
                 loggers.info("最优模型已保存")
 
-            torch.save(model.state_dict(), os.path.join(save_dir, "latest", args.model, ".pth"))
+            torch.save(model.state_dict(), os.path.join(save_dir, "latest_" + args.model + ".pth"))
             loggers.info("最新模型已保存")
 
 
@@ -495,8 +495,8 @@ def main(args):
 
     train(model, train_loader, val_loader, args, loggers, run_dir, save_dir)
 
-    best_model_path = os.path.join(save_dir, "best", args.model, ".pth")
-    latest_model_path = os.path.join(save_dir, "latest", args.model, ".pth")
+    best_model_path = os.path.join(save_dir, "best_" +  args.model + ".pth")
+    latest_model_path = os.path.join(save_dir, "latest_" + args.model + ".pth")
 
     test_loss, miou, fwiou, acc, ious = evaluate_model(args, model, test_loader, num_classes=args.num_classes, model_path=best_model_path)
     loggers.info(
@@ -524,10 +524,10 @@ if __name__ == '__main__':
     parser.add_argument("--momentum", type=float, default=0.9, help="Momentum for optimizer")
     parser.add_argument("--log_dir", type=str, default="./runs", help="Directory to save logs")
     parser.add_argument("--checkpoint", type=str, default="checkpoints/stage2", help="Directory to save checkpoints")
-    # parser.add_argument("--dataroot", default="datasets/BCSS-WSSS", type=str)
-    # parser.add_argument("--dataset", default="bcss", type=str)
-    parser.add_argument("--dataroot", default="datasets/LUAD-HistoSeg", type=str)
-    parser.add_argument("--dataset", default="luad", type=str)
+    parser.add_argument("--dataroot", default="datasets/BCSS-WSSS", type=str)
+    parser.add_argument("--dataset", default="bcss", type=str)
+    # parser.add_argument("--dataroot", default="datasets/LUAD-HistoSeg", type=str)
+    # parser.add_argument("--dataset", default="luad", type=str)
     parser.add_argument('--model', type=str, required=True, choices=list(MODEL_CHOICES.keys()), help='选择模型架构')
     parser.add_argument('--encoder', type=str, default='timm-resnest101e', choices=ENCODER_CHOICES, help='选择编码器/主干网络')
 
