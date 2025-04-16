@@ -348,16 +348,21 @@ def train(model, train_loader, val_loader, args, loggers, run_dir, save_dir):
                 outputs = model(image)
                 one = torch.ones((outputs.shape[0],1,224,224)).cuda()
                 outputs = torch.cat([outputs,(100 * one * (masks_list[0]==4).unsqueeze(dim = 1))],dim = 1)
-                if args.onss:
-                    loss_list.append(criterion_2(outputs, masks_list[0]))
-                else:
-                    loss_list.append(criterion_1(outputs, masks_list[0]))
+                # if args.onss:
+                #     loss_list.append(criterion_2(outputs, masks_list[0]))
+                # else:
+                #     loss_list.append(criterion_1(outputs, masks_list[0]))
 
+                # loss_list.append(criterion_1(outputs, masks_list[0]))
                 # loss_list.append(criterion_1(outputs, masks_list[1]))
                 # loss_list.append(criterion_1(outputs, masks_list[2]))
+                
+                loss_list.append(criterion_2(outputs, masks_list[0]))
+                loss_list.append(criterion_2(outputs, masks_list[1]))
+                loss_list.append(criterion_2(outputs, masks_list[2]))
 
-                # loss = loss_list[0] * 0.6 + loss_list[1] * 0.2 + loss_list[2] * 0.2
-                loss = loss_list[0]
+                loss = loss_list[0] * 0.6 + loss_list[1] * 0.3 + loss_list[2] * 0.1
+                # loss = loss_list[0]
 
                 # output = model(image)
                 # output2 = model(image)
@@ -524,10 +529,10 @@ if __name__ == '__main__':
     parser.add_argument("--momentum", type=float, default=0.9, help="Momentum for optimizer")
     parser.add_argument("--log_dir", type=str, default="./runs", help="Directory to save logs")
     parser.add_argument("--checkpoint", type=str, default="checkpoints/stage2", help="Directory to save checkpoints")
-    parser.add_argument("--dataroot", default="datasets/BCSS-WSSS", type=str)
-    parser.add_argument("--dataset", default="bcss", type=str)
-    # parser.add_argument("--dataroot", default="datasets/LUAD-HistoSeg", type=str)
-    # parser.add_argument("--dataset", default="luad", type=str)
+    # parser.add_argument("--dataroot", default="datasets/BCSS-WSSS", type=str)
+    # parser.add_argument("--dataset", default="bcss", type=str)
+    parser.add_argument("--dataroot", default="datasets/LUAD-HistoSeg", type=str)
+    parser.add_argument("--dataset", default="luad", type=str)
     parser.add_argument('--model', type=str, required=True, choices=list(MODEL_CHOICES.keys()), help='选择模型架构')
     parser.add_argument('--encoder', type=str, default='timm-resnest101e', choices=ENCODER_CHOICES, help='选择编码器/主干网络')
 
